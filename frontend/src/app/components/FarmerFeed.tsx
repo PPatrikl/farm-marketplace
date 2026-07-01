@@ -1,131 +1,13 @@
 import { MapPin, Calendar, Star, Filter, SlidersHorizontal, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { useLang } from "../i18n/LanguageContext";
+import { farms, type Farm } from "../data/farms";
 
-const farms = [
-  {
-    id: 1,
-    name: "Virtanen Tila",
-    location_fi: "Hämeenlinna, Kanta-Häme",
-    location_en: "Hämeenlinna, Kanta-Häme",
-    type: "picking",
-    produce_fi: "Mansikat",
-    produce_en: "Strawberries",
-    price: "4.50",
-    unit: "kg",
-    dateStart: "20.6.",
-    dateEnd: "15.7.",
-    rating: 4.8,
-    reviews: 42,
-    image: "https://images.unsplash.com/photo-1734313237433-9b0ecafc2d42?w=400&h=240&fit=crop&auto=format",
-    distance: "12 km",
-    openSpots: 18,
-    tags_fi: ["Sopii perheille", "Parkkipaikka"],
-    tags_en: ["Family-friendly", "Parking"],
-  },
-  {
-    id: 2,
-    name: "Korhonen Farm",
-    location_fi: "Turku, Varsinais-Suomi",
-    location_en: "Turku, Varsinais-Suomi",
-    type: "job",
-    produce_fi: "Vadelmansato",
-    produce_en: "Raspberry harvest",
-    price: "13.50",
-    unit: "h",
-    dateStart: "1.7.",
-    dateEnd: "30.8.",
-    rating: 4.6,
-    reviews: 27,
-    image: "https://images.unsplash.com/photo-1511813534717-f467cef279bf?w=400&h=240&fit=crop&auto=format",
-    distance: "89 km",
-    openSpots: 6,
-    tags_fi: ["Majoitus", "Ateriat sisältyvät"],
-    tags_en: ["Accommodation", "Meals included"],
-  },
-  {
-    id: 3,
-    name: "Mäkinen Mansikkatila",
-    location_fi: "Lahti, Päijät-Häme",
-    location_en: "Lahti, Päijät-Häme",
-    type: "picking",
-    produce_fi: "Mansikat ja vadelmat",
-    produce_en: "Strawberries & Raspberries",
-    price: "3.80",
-    unit: "kg",
-    dateStart: "28.6.",
-    dateEnd: "22.7.",
-    rating: 4.9,
-    reviews: 61,
-    image: "https://images.unsplash.com/photo-1593895349007-8e6700308b3d?w=400&h=240&fit=crop&auto=format",
-    distance: "34 km",
-    openSpots: 40,
-    tags_fi: ["Luomu", "Lapset tervetulleita"],
-    tags_en: ["Organic", "Children welcome"],
-  },
-  {
-    id: 4,
-    name: "Leinonen Puutarha",
-    location_fi: "Tampere, Pirkanmaa",
-    location_en: "Tampere, Pirkanmaa",
-    type: "picking",
-    produce_fi: "Karviainen ja herukat",
-    produce_en: "Gooseberries & Currants",
-    price: "5.20",
-    unit: "kg",
-    dateStart: "10.7.",
-    dateEnd: "5.8.",
-    rating: 4.7,
-    reviews: 19,
-    image: "https://images.unsplash.com/photo-1734313237467-1f93eb3abbe0?w=400&h=240&fit=crop&auto=format",
-    distance: "58 km",
-    openSpots: 12,
-    tags_fi: ["Koirat sallittu"],
-    tags_en: ["Dogs allowed"],
-  },
-  {
-    id: 5,
-    name: "Heikkinen Kartano",
-    location_fi: "Seinäjoki, Etelä-Pohjanmaa",
-    location_en: "Seinäjoki, South Ostrobothnia",
-    type: "job",
-    produce_fi: "Perunasato",
-    produce_en: "Potato harvest",
-    price: "14.00",
-    unit: "h",
-    dateStart: "15.8.",
-    dateEnd: "30.9.",
-    rating: 4.5,
-    reviews: 33,
-    image: "https://images.unsplash.com/photo-1571524188026-cc1d649962ea?w=400&h=240&fit=crop&auto=format",
-    distance: "142 km",
-    openSpots: 15,
-    tags_fi: ["Asuminen järjestetty", "Sopimuspohjainen"],
-    tags_en: ["Housing provided", "Contract work"],
-  },
-  {
-    id: 6,
-    name: "Niemi Marjatila",
-    location_fi: "Joensuu, Pohjois-Karjala",
-    location_en: "Joensuu, North Karelia",
-    type: "picking",
-    produce_fi: "Mustikkakentät",
-    produce_en: "Blueberry fields",
-    price: "4.00",
-    unit: "kg",
-    dateStart: "25.7.",
-    dateEnd: "20.8.",
-    rating: 4.9,
-    reviews: 55,
-    image: "https://images.unsplash.com/photo-1597389030828-c5218bdf7fa4?w=400&h=240&fit=crop&auto=format",
-    distance: "201 km",
-    openSpots: 30,
-    tags_fi: ["Luomu", "Kaunis sijainti"],
-    tags_en: ["Organic", "Scenic location"],
-  },
-];
+interface FarmerFeedProps {
+  onSelectFarm?: (farm: Farm) => void;
+}
 
-export function FarmerFeed() {
+export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
   const { tr, lang } = useLang();
   const [activeFilter, setActiveFilter] = useState("all");
   const [activeSortIndex, setActiveSortIndex] = useState(0);
@@ -150,7 +32,7 @@ export function FarmerFeed() {
     if (activeFilter === "all") return true;
     if (activeFilter === "picking") return f.type === "picking";
     if (activeFilter === "jobs") return f.type === "job";
-    if (activeFilter === "organic") return f.tags_en.some((t) => t.includes("Organic"));
+    if (activeFilter === "organic") return f.tags_en.some((t) => t.toLowerCase().includes("organic"));
     if (activeFilter === "nearby") return parseInt(f.distance) < 50;
     return true;
   });
@@ -220,7 +102,7 @@ export function FarmerFeed() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((farm) => (
-            <FarmCard key={farm.id} farm={farm} lang={lang} tr={tr} />
+            <FarmCard key={farm.id} farm={farm} lang={lang} tr={tr} onSelect={() => onSelectFarm?.(farm)} />
           ))}
         </div>
       </div>
@@ -228,7 +110,17 @@ export function FarmerFeed() {
   );
 }
 
-function FarmCard({ farm, lang, tr }: { farm: (typeof farms)[0]; lang: string; tr: (k: any) => string }) {
+function FarmCard({
+  farm,
+  lang,
+  tr,
+  onSelect,
+}: {
+  farm: Farm;
+  lang: string;
+  tr: (k: any) => string;
+  onSelect: () => void;
+}) {
   const isPicking = farm.type === "picking";
   const badgeColor = isPicking ? { bg: "#EDF4E8", text: "#2A5012" } : { bg: "#FAEAEC", text: "#B8293A" };
   const badgeLabel = isPicking ? tr("badge_picking") : tr("badge_job");
@@ -237,7 +129,10 @@ function FarmCard({ farm, lang, tr }: { farm: (typeof farms)[0]; lang: string; t
   const tags = lang === "fi" ? farm.tags_fi : farm.tags_en;
 
   return (
-    <div className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-md hover:border-primary/20 transition-all duration-200 group cursor-pointer">
+    <div
+      onClick={onSelect}
+      className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-md hover:border-primary/20 transition-all duration-200 group cursor-pointer"
+    >
       <div className="relative overflow-hidden" style={{ height: 180, background: "#E8E4DA" }}>
         <img
           src={farm.image}
@@ -301,7 +196,10 @@ function FarmCard({ farm, lang, tr }: { farm: (typeof farms)[0]; lang: string; t
             <div className="text-xs text-muted-foreground mb-1">
               {farm.openSpots} {tr("label_spots_left")}
             </div>
-            <button className="px-3.5 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors">
+            <button
+              onClick={(e) => { e.stopPropagation(); onSelect(); }}
+              className="px-3.5 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors"
+            >
               {isPicking ? tr("btn_book") : tr("btn_apply")}
             </button>
           </div>

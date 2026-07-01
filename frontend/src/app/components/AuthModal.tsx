@@ -112,7 +112,7 @@ export function AuthModal({ open, onClose, onSuccess, initialTab = "register" }:
               {tr("auth_success_sub")}
             </p>
             <div className="w-full space-y-2 mb-6 text-left">
-              {[tr("auth_verified_phone_done") || "Sähköposti vahvistettu", tr("auth_role_picker"), "Ilmoitukset avattu"].map((item) => (
+              {[tr("auth_verified_phone_done"), tr("auth_role_picker"), tr("auth_notifications_enabled")].map((item) => (
                 <div key={item} className="flex items-center gap-2.5 text-sm text-foreground">
                   <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
                   {item}
