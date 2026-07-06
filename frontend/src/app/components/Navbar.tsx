@@ -2,11 +2,12 @@ import { Leaf, Menu, X, Bell, User, LogOut, ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useLang } from "../i18n/LanguageContext";
 import type { Lang } from "../i18n/translations";
+import type { UserProfile } from "../types";
 
 interface NavbarProps {
   activePage: string;
   onNavigate: (page: string) => void;
-  user: string | null;
+  user: UserProfile | null;
   onOpenAuth: (tab: "login" | "register") => void;
   onLogout: () => void;
 }
@@ -130,10 +131,10 @@ export function Navbar({ activePage, onNavigate, user, onOpenAuth, onLogout }: N
                 >
                   <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
                     <span className="text-primary-foreground text-[9px] font-bold">
-                      {user.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                      {user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
                     </span>
                   </div>
-                  <span>{user}</span>
+                  <span>{user.name}</span>
                 </button>
                 <button
                   onClick={onLogout}

@@ -85,7 +85,7 @@ export const t = {
     label_day_ago: "päivä sitten",
 
     // Profile
-    profile_title: "Minna Korhonen",
+    profile_title: "Oma profiili",
     profile_location: "Tampere, Pirkanmaa",
     profile_role_picker: "Poimija / Kerääjä",
     profile_role_farmer: "Maanviljelijä",
@@ -93,8 +93,8 @@ export const t = {
     profile_tab_create: "Jätä ilmoitus",
     profile_stats_title: "Toiminta",
     profile_stat_listings: "Jätettyjä ilmoituksia",
-    profile_stat_sold: "Myyty yhteensä",
-    profile_stat_buyers: "Tyytyväisiä ostajia",
+    profile_stat_active: "Aktiivisia ilmoituksia",
+    profile_stat_contacts: "Yhteydenottoja",
     profile_stat_member: "Jäsen alkaen",
     profile_verified_title: "Vahvistukset",
     profile_verified_phone: "Puhelin vahvistettu",
@@ -105,7 +105,7 @@ export const t = {
     profile_listing_views: "näyttökertaa",
     profile_listing_contacts: "yhteydenottoa",
     profile_status_active: "Aktiivinen",
-    profile_status_sold: "Myyty",
+    profile_status_inactive: "Ei aktiivinen",
 
     // Create form
     form_title: "Luo uusi ilmoitus",
@@ -332,7 +332,7 @@ export const t = {
     label_day_ago: "day ago",
 
     // Profile
-    profile_title: "Minna Korhonen",
+    profile_title: "My profile",
     profile_location: "Tampere, Pirkanmaa",
     profile_role_picker: "Picker / Forager",
     profile_role_farmer: "Farmer",
@@ -340,8 +340,8 @@ export const t = {
     profile_tab_create: "Post a Listing",
     profile_stats_title: "Activity",
     profile_stat_listings: "Listings posted",
-    profile_stat_sold: "Total sold",
-    profile_stat_buyers: "Happy buyers",
+    profile_stat_active: "Active listings",
+    profile_stat_contacts: "Contacts",
     profile_stat_member: "Member since",
     profile_verified_title: "Verified badges",
     profile_verified_phone: "Phone verified",
@@ -352,7 +352,7 @@ export const t = {
     profile_listing_views: "views",
     profile_listing_contacts: "contacts",
     profile_status_active: "Active",
-    profile_status_sold: "Sold",
+    profile_status_inactive: "Inactive",
 
     // Create form
     form_title: "Create a new listing",

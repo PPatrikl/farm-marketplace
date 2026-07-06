@@ -1,13 +1,21 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Eye, EyeOff, Leaf, CheckCircle, Trees, Sprout } from "lucide-react";
 import { useLang } from "../i18n/LanguageContext";
+import type { UserProfile } from "../types";
 
 interface AuthModalProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: (name: string) => void;
+  onSuccess: (profile: UserProfile) => void;
   initialTab?: "login" | "register";
 }
+
+const buildProfileStats = (email: string) => {
+  return {
+    rating: 0,
+    reviews: 0,
+  };
+};
 
 export function AuthModal({ open, onClose, onSuccess, initialTab = "register" }: AuthModalProps) {
   const { tr } = useLang();
@@ -60,10 +68,19 @@ export function AuthModal({ open, onClose, onSuccess, initialTab = "register" }:
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
+      const profileStats = buildProfileStats(form.email);
+      const profile: UserProfile = {
+        name: form.name.trim() || form.email.split("@")[0] || "Käyttäjä",
+        email: form.email.trim(),
+        role,
+        createdAt: new Date().toISOString(),
+        ...profileStats,
+      };
+
       if (tab === "register") {
         setSuccess(true);
       } else {
-        onSuccess(form.name || "Minna K.");
+        onSuccess(profile);
         onClose();
       }
     }, 1200);
@@ -120,7 +137,16 @@ export function AuthModal({ open, onClose, onSuccess, initialTab = "register" }:
               ))}
             </div>
             <button
-              onClick={() => { onSuccess(form.name || "Minna K."); onClose(); }}
+              onClick={() => {
+                onSuccess({
+                  name: form.name.trim() || form.email.split("@")[0] || "Käyttäjä",
+                  email: form.email.trim(),
+                  role,
+                  createdAt: new Date().toISOString(),
+                  ...buildProfileStats(form.email),
+                });
+                onClose();
+              }}
               className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors"
             >
               {tr("auth_btn_continue")}
