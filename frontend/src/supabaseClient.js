@@ -9,7 +9,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Connection test function
 async function testConnection() {
-  const { data, error } = await supabase.from('any_table_name').select('*').limit(1)
+  const { data, error } = await supabase.from('profiles').select('*').limit(1)
   
   if (error) {
     console.log('✅ Connection to Supabase is successful! (Schema error is normal for an empty database):', error.message)
