@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Eye, EyeOff, Leaf, CheckCircle, Trees, Sprout } from "lucide-react";
 import { useLang } from "../i18n/LanguageContext";
+import {supabase} from "../../supabaseClient";
 
 interface AuthModalProps {
   open: boolean;
@@ -53,21 +54,44 @@ export function AuthModal({ open, onClose, onSuccess, initialTab = "register" }:
     return e;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const errs = validate();
-    if (Object.keys(errs).length) { setErrors(errs); return; }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      if (tab === "register") {
-        setSuccess(true);
-      } else {
-        onSuccess(form.name || "Minna K.");
-        onClose();
-      }
-    }, 1200);
-  };
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  const errs = validate();
+  if (Object.keys(errs).length) { setErrors(errs); return; }
+  setLoading(true);
+
+  try {
+    if (tab === "register") {
+      const { error } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          data: {
+            full_name: form.name,
+            phone: form.phone,
+            is_farmer: role === "farmer",
+            is_collector: role === "picker",
+          }
+        }
+      });
+      if (error) throw error;
+      setSuccess(true);
+
+    } else {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: form.email,
+        password: form.password,
+      });
+      if (error) throw error;
+      onSuccess(data.user?.user_metadata?.full_name || form.email);
+      onClose();
+    }
+  } catch (err: any) {
+    setErrors({ email: err.message });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const inputClass = (field: keyof typeof form) =>
     `w-full px-4 py-2.5 bg-input-background rounded-xl border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-ring/30 transition-all ${
