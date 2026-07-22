@@ -1,159 +1,35 @@
 import { MapPin, Phone, MessageCircle, Filter, Scale, Clock, Search } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLang } from "../i18n/LanguageContext";
+import { fetchForestListings, type ForestListing } from "../../services/forestListings";
 
-const listings = [
-  {
-    id: 1,
-    seller: "Paavo Mäkinen",
-    initials: "PM",
-    avatarColor: "#2A5012",
-    product_fi: "Kultaiset kanttarellit",
-    product_en: "Golden Chanterelles",
-    category: "Mushrooms",
-    category_fi: "Sienet",
-    volume: "4 kg",
-    price: "12.00",
-    unit: "kg",
-    total: "48.00",
-    location: "Tampere",
-    region_fi: "Pirkanmaa",
-    region_en: "Pirkanmaa",
-    distance: "5 km",
-    posted_fi: "4 tuntia sitten",
-    posted_en: "4 hours ago",
-    description_fi: "Kerätty tänä aamuna Teiskon metsästä. Puhtaat, luokka A -kanttarellit. Voin toimittaa Tampereen alueella.",
-    description_en: "Freshly picked this morning from Teisko forest. Clean, grade A chanterelles. Can deliver within Tampere.",
-    verified: true,
-    fresh: true,
-  },
-  {
-    id: 2,
-    seller: "Riikka Leinonen",
-    initials: "RL",
-    avatarColor: "#3B5EA6",
-    product_fi: "Luonnonmustikka",
-    product_en: "Wild Blueberries",
-    category: "Berries",
-    category_fi: "Marjat",
-    volume: "8 L",
-    price: "8.50",
-    unit: "L",
-    total: "68.00",
-    location: "Jyväskylä",
-    region_fi: "Keski-Suomi",
-    region_en: "Central Finland",
-    distance: "142 km",
-    posted_fi: "8 tuntia sitten",
-    posted_en: "8 hours ago",
-    description_fi: "Käsinpoimittu puhtaasta metsästä, ei teitä lähistöllä. Sopii hilloon, mehuun tai syötäväksi tuoreena. Pakastetoimituskin onnistuu.",
-    description_en: "Hand-picked from pristine forest, no roads nearby. Perfect for jam, juice, or eating fresh. Can ship frozen.",
-    verified: true,
-    fresh: true,
-  },
-  {
-    id: 3,
-    seller: "Eero Salminen",
-    initials: "ES",
-    avatarColor: "#B8293A",
-    product_fi: "Puolukka",
-    product_en: "Lingonberries",
-    category: "Berries",
-    category_fi: "Marjat",
-    volume: "12 L",
-    price: "6.00",
-    unit: "L",
-    total: "72.00",
-    location: "Rovaniemi",
-    region_fi: "Lappi",
-    region_en: "Lapland",
-    distance: "680 km",
-    posted_fi: "1 päivä sitten",
-    posted_en: "1 day ago",
-    description_fi: "Lapin puolukoita — poikkeuksellinen laatu ja maku puhtaista pohjoisista metsistä. Toimitus saatavilla koko maahan.",
-    description_en: "Lapland lingonberries — exceptional quality and flavor from clean northern forests. Shipping available nationwide.",
-    verified: false,
-    fresh: false,
-  },
-  {
-    id: 4,
-    seller: "Anu Korhonen",
-    initials: "AK",
-    avatarColor: "#6B5B2E",
-    product_fi: "Sekasieniseos",
-    product_en: "Mixed Forest Mushrooms",
-    category: "Mushrooms",
-    category_fi: "Sienet",
-    volume: "3 kg",
-    price: "9.00",
-    unit: "kg",
-    total: "27.00",
-    location: "Oulu",
-    region_fi: "Pohjois-Pohjanmaa",
-    region_en: "Northern Ostrobothnia",
-    distance: "320 km",
-    posted_fi: "2 päivää sitten",
-    posted_en: "2 days ago",
-    description_fi: "Seos herkkutatteja, kanttarelleja ja rouskuja. Kaikki puhdistettu ja lajiteltu koon mukaan. Nouto suositeltavaa.",
-    description_en: "Mix of porcini, chanterelles, and milk caps. All cleaned and sorted by size. Pickup preferred.",
-    verified: true,
-    fresh: false,
-  },
-  {
-    id: 5,
-    seller: "Sirpa Virtanen",
-    initials: "SV",
-    avatarColor: "#4A7C2F",
-    product_fi: "Lakka (Hilla)",
-    product_en: "Cloudberries",
-    category: "Berries",
-    category_fi: "Marjat",
-    volume: "5 L",
-    price: "22.00",
-    unit: "L",
-    total: "110.00",
-    location: "Kemi",
-    region_fi: "Lappi",
-    region_en: "Lapland",
-    distance: "598 km",
-    posted_fi: "2 päivää sitten",
-    posted_en: "2 days ago",
-    description_fi: "Laadukkaita lakkoja aidoilta Lapin soilta. Harvinaista ja kausiluonteista — saatavilla vain elokuussa. Pakaste saatavilla.",
-    description_en: "Premium cloudberries from genuine Lapland bogs. Rare and seasonal — only available August. Frozen available.",
-    verified: true,
-    fresh: false,
-  },
-  {
-    id: 6,
-    seller: "Mikko Heikkinen",
-    initials: "MH",
-    avatarColor: "#5C4E3A",
-    product_fi: "Herkkutatti",
-    product_en: "Porcini Mushrooms",
-    category: "Mushrooms",
-    category_fi: "Sienet",
-    volume: "2.5 kg",
-    price: "18.00",
-    unit: "kg",
-    total: "45.00",
-    location: "Kuopio",
-    region_fi: "Pohjois-Savo",
-    region_en: "Northern Savonia",
-    distance: "195 km",
-    posted_fi: "5 tuntia sitten",
-    posted_en: "5 hours ago",
-    description_fi: "Kauniita herkkutatteja Kallaveden lähimetsistä. Kiinteät, suuret lakki. Täydellisiä risottoon tai kuivaukseen.",
-    description_en: "Beautiful porcini from Lake Kallavesi forests. Firm, large caps. Perfect for risotto or drying.",
-    verified: true,
-    fresh: true,
-  },
-];
 
+/** ForagerMarket component displays a list of forest listings with filtering and search functionality. */
 export function ForagerMarket() {
-  const { tr, lang } = useLang();
-  const [activeFilter, setActiveFilter] = useState("all");
+  const { tr, lang } = useLang(); 
+  const [listings, setListings] = useState<ForestListing[]>([]);// State to hold the fetched forest listings
+  const [loading, setLoading] = useState(true); // State to indicate if the listings are being loaded
+  const [error, setError] = useState<string | null>(null);
+
+  /** useEffect hook to fetch forest listings on component mount. */
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await fetchForestListings();
+        setListings(data);
+      } catch (err) {
+        setError("Ilmoitusten lataaminen epäonnistui. / Failed to load listings.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+  const [activeFilter, setActiveFilter] = useState("all"); 
   const [search, setSearch] = useState("");
-  const [contactedId, setContactedId] = useState<number | null>(null);
+  const [contactedId, setContactedId] = useState<string | null>(null); 
 
   const filterChips = [
     { id: "all", label: tr("filter_all") },
@@ -165,21 +41,22 @@ export function ForagerMarket() {
   ];
 
   const filtered = listings.filter((l) => {
-    const cat = l.category.toLowerCase();
-    const matchFilter =
-      activeFilter === "all" ||
-      (activeFilter === "berries" && cat === "berries") ||
-      (activeFilter === "mushrooms" && cat === "mushrooms") ||
-      (activeFilter === "nearby" && parseInt(l.distance) < 100) ||
-      (activeFilter === "fresh" && l.fresh) ||
-      (activeFilter === "shipping" && (l.description_fi.toLowerCase().includes("toimitus") || l.description_en.toLowerCase().includes("ship")));
-    const q = search.toLowerCase();
-    const matchSearch = !q ||
-      l.product_fi.toLowerCase().includes(q) ||
-      l.product_en.toLowerCase().includes(q) ||
-      l.location.toLowerCase().includes(q);
-    return matchFilter && matchSearch;
-  });
+  const type = l.product_type.toLowerCase();
+  const matchFilter =
+    activeFilter === "all" ||
+    (activeFilter === "berries" && type === "marjat") ||
+    (activeFilter === "mushrooms" && type === "sienet") ||
+    (activeFilter === "fresh" && l.harvested_today) ||
+    (activeFilter === "shipping" && l.delivery_available);
+
+  const q = search.toLowerCase();
+  const matchSearch = !q ||
+    l.product_name.toLowerCase().includes(q) ||
+    l.city.toLowerCase().includes(q) ||
+    (l.description?.toLowerCase().includes(q) ?? false);
+
+  return matchFilter && matchSearch;
+});
 
   return (
     <div style={{ fontFamily: "'Inter', sans-serif" }} className="min-h-screen bg-background">
@@ -247,6 +124,7 @@ export function ForagerMarket() {
   );
 }
 
+/** ForageCard component displays individual forest listing details. */
 function ForageCard({
   listing,
   lang,
@@ -254,98 +132,97 @@ function ForageCard({
   contacted,
   onContact,
 }: {
-  listing: (typeof listings)[0];
+  listing: ForestListing;
   lang: string;
   tr: (k: any) => string;
   contacted: boolean;
   onContact: () => void;
 }) {
-  const product = lang === "fi" ? listing.product_fi : listing.product_en;
-  const category = lang === "fi" ? listing.category_fi : listing.category;
-  const region = lang === "fi" ? listing.region_fi : listing.region_en;
-  const description = lang === "fi" ? listing.description_fi : listing.description_en;
-  const posted = lang === "fi" ? listing.posted_fi : listing.posted_en;
-  const categoryIcon = listing.category === "Berries" ? "🫐" : "🍄";
+  const product = listing.product_name;
+  const category = listing.product_type === "marjat" ? (lang === "fi" ? "Marjat" : "Berries") : listing.product_type === "sienet" ? (lang === "fi" ? "Sienet" : "Mushrooms") : (lang === "fi" ? "Muut" : "Other");
+  const region = `${listing.city}, ${listing.region}`;
+  const description = listing.description ?? "";
+  const posted = listing.created_at ? new Date(listing.created_at).toLocaleDateString(lang === "fi" ? "fi-FI" : "en-GB") : "";
+  const categoryIcon = listing.product_type === "marjat" ? "🫐" : "🍄";
+  const sellerInitials = listing.seller_name
+    .split(" ")
+    .map((n: string) => n[0])
+    .join("")
+    .toUpperCase();
 
   return (
     <div className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-md hover:border-primary/20 transition-all duration-200 group">
-      <div className="relative overflow-hidden" style={{ height: 170, background: "#E8E4DA" }}>
+      <div className="relative overflow-hidden" style={{ height: 200, background: "#E8E4DA" }}>
         <img
-          src={listing.id === 1 ? "https://images.unsplash.com/photo-1595669994887-c202e84f06da?w=400&h=240&fit=crop&auto=format"
-            : listing.id === 2 ? "https://images.unsplash.com/photo-1725714871679-95dde71f1b63?w=400&h=240&fit=crop&auto=format"
-            : listing.id === 3 ? "https://images.unsplash.com/photo-1597389030828-c5218bdf7fa4?w=400&h=240&fit=crop&auto=format"
-            : listing.id === 4 ? "https://images.unsplash.com/photo-1512595594595-82b7f049313b?w=400&h=240&fit=crop&auto=format"
-            : listing.id === 5 ? "https://images.unsplash.com/photo-1586007173401-3821e3092abf?w=400&h=240&fit=crop&auto=format"
-            : "https://images.unsplash.com/photo-1512595784-5ebad80772a3?w=400&h=240&fit=crop&auto=format"}
+          src={listing.primary_image_url ?? "https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=900&h=520&fit=crop&auto=format"}
           alt={product}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-        <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm text-white text-xs px-2.5 py-1 rounded-full">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5">
           <span>{categoryIcon}</span>
           <span>{category}</span>
         </div>
-        {listing.fresh && (
-          <div className="absolute top-3 right-3 bg-primary/90 text-primary-foreground text-xs px-2 py-1 rounded-full">
-            {tr("label_fresh_today")}
+        {listing.harvested_today && (
+          <div className="absolute top-3 right-3 bg-primary text-primary-foreground text-xs font-medium px-2.5 py-1 rounded-full">
+            {lang === "fi" ? "Tänään kerätty" : "Harvested today"}
           </div>
         )}
-        <div className="absolute bottom-3 left-3 bg-white/90 text-foreground text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1">
-          <Scale className="w-3 h-3 text-primary" />
-          {listing.volume} {tr("label_available")}
+        <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full">
+          {listing.quantity} {listing.unit} {lang === "fi" ? "saatavilla" : "available"}
         </div>
       </div>
 
       <div className="p-4">
-        <div className="flex items-center gap-2.5 mb-3">
-          <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0"
-            style={{ background: listing.avatarColor }}
-          >
-            {listing.initials}
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-semibold flex-shrink-0">
+            {listing.seller_avatar
+              ? <img src={listing.seller_avatar} alt={listing.seller_name} className="w-full h-full rounded-full object-cover" />
+              : sellerInitials}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="text-foreground text-sm font-medium truncate">{listing.seller}</span>
-              {listing.verified && (
-                <span className="text-xs text-primary" title={tr("label_verified")}>✓</span>
+              <span className="text-sm font-medium text-foreground">{listing.seller_name}</span>
+              {listing.identity_verified && (
+                <svg className="w-3.5 h-3.5 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
               )}
             </div>
-            <div className="flex items-center gap-1 text-muted-foreground text-xs">
-              <MapPin className="w-3 h-3" />
-              <span>{listing.location}, {region}</span>
-              <span className="mx-1">·</span>
-              <span>{listing.distance}</span>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                {region}
+              </span>
+              <span>·</span>
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {posted}
+              </span>
             </div>
-          </div>
-          <div className="flex items-center gap-1 text-muted-foreground text-xs flex-shrink-0">
-            <Clock className="w-3 h-3" />
-            <span>{posted}</span>
           </div>
         </div>
 
-        <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500 }} className="text-foreground text-base mb-1.5">
+        <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500 }} className="text-foreground text-base mb-1">
           {product}
         </h3>
-        <p className="text-muted-foreground text-xs leading-relaxed mb-4 line-clamp-2">
-          {description}
-        </p>
+        <p className="text-muted-foreground text-xs mb-3 line-clamp-2">{description}</p>
 
         <div className="flex items-center justify-between pt-3 border-t border-border">
           <div>
             <div className="flex items-baseline gap-1">
-              <span style={{ fontFamily: "'Fraunces', serif", fontWeight: 500, fontSize: "1.2rem" }} className="text-accent">
-                €{listing.price}
+              <span style={{ fontFamily: "'Fraunces', serif", fontWeight: 500, fontSize: "1.1rem" }} className="text-primary">
+                €{Number(listing.price_per_unit).toFixed(2)}
               </span>
               <span className="text-muted-foreground text-xs">/ {listing.unit}</span>
             </div>
-            <div className="text-muted-foreground text-xs mt-0.5">
-              {tr("label_total")} €{listing.total}
+            <div className="text-xs text-muted-foreground">
+              {lang === "fi" ? "Yhteensä" : "Total"}: €{(listing.price_per_unit * listing.quantity).toFixed(2)}
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-2 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors">
-              <MessageCircle className="w-4 h-4" />
+            <button className="p-2 rounded-lg border border-border hover:border-primary/30 transition-colors">
+              <MessageCircle className="w-4 h-4 text-muted-foreground" />
             </button>
             <button
               onClick={onContact}
@@ -355,11 +232,21 @@ function ForageCard({
                   : "bg-primary text-primary-foreground hover:bg-primary/90"
               }`}
             >
-              <Phone className="w-3.5 h-3.5" />
-              {contacted ? tr("btn_contacted") : tr("btn_contact")}
+              {contacted ? (
+                <>{lang === "fi" ? "Lähetetty" : "Sent"}</>
+              ) : (
+                <>{lang === "fi" ? "Ota yhteyttä" : "Contact"}</>
+              )}
             </button>
           </div>
         </div>
+
+        {listing.delivery_available && (
+          <div className="mt-2 flex items-center gap-1.5 text-xs text-primary">
+            <Scale className="w-3 h-3" />
+            {lang === "fi" ? "Toimitus saatavilla" : "Delivery available"}
+          </div>
+        )}
       </div>
     </div>
   );

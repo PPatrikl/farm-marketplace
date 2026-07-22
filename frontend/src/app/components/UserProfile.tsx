@@ -1,32 +1,11 @@
 import {
-  User, MapPin, Camera, Plus, Star, ChevronRight,
+  MapPin, Camera, Plus, Star, ChevronRight,
   Sprout, Trees, Briefcase, CheckCircle, Upload
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLang } from "../i18n/LanguageContext";
+import {supabase} from "../../supabaseClient"; 
 
-const myListings = [
-  {
-    id: 1,
-    title_fi: "Luonnonmustikkaa — 5 L",
-    title_en: "Wild Blueberries — 5 L",
-    status_key: "profile_status_active" as const,
-    views: 34,
-    contacts: 7,
-    posted: "12.6.2025",
-    type: "forager",
-  },
-  {
-    id: 2,
-    title_fi: "Kanttarellit — 2 kg",
-    title_en: "Chanterelles — 2 kg",
-    status_key: "profile_status_sold" as const,
-    views: 61,
-    contacts: 12,
-    posted: "5.6.2025",
-    type: "forager",
-  },
-];
 
 const regions_fi = [
   "Uusimaa", "Pirkanmaa", "Varsinais-Suomi", "Kanta-Häme", "Päijät-Häme",
@@ -41,6 +20,43 @@ const regions_en = [
 
 export function UserProfile() {
   const { tr, lang } = useLang();
+
+
+  const [profile, setProfile] = useState<{
+  full_name: string;
+  city: string | null;
+  region: string | null;
+  rating: number;
+  review_count: number;
+  phone_verified: boolean;
+  identity_verified: boolean;
+  food_licence: boolean;
+  is_farmer: boolean;
+  is_collector: boolean;
+  total_sales_eur: number;
+  created_at: string;
+} | null>(null);
+
+const [myListings, setMyListings] = useState<any[]>([]);
+
+useEffect(() => {
+  async function loadProfile() {
+    // Get current logged in user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Fetch their profile from database
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (data) setProfile(data);
+  }
+  loadProfile();
+}, []);
+
   const [role, setRole] = useState<"picker" | "farmer">("picker");
   const [activeTab, setActiveTab] = useState<"profile" | "create">("profile");
   const [form, setForm] = useState({
@@ -97,6 +113,7 @@ export function UserProfile() {
                 style={{ background: "linear-gradient(135deg, #2A5012, #4A7C2F)", fontFamily: "'Fraunces', serif" }}
               >
                 MK
+             {profile?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() ?? 'MK'}
               </div>
               <button className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center hover:bg-primary/90 transition-colors">
                 <Camera className="w-3 h-3" />
@@ -104,15 +121,15 @@ export function UserProfile() {
             </div>
             <div className="flex-1">
               <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500 }} className="text-foreground text-2xl mb-0.5">
-                {tr("profile_title")}
+                {profile?.full_name ?? tr("profile_title")}
               </h1>
               <div className="flex items-center gap-1 text-muted-foreground text-sm">
                 <MapPin className="w-3.5 h-3.5" />
-                <span>{tr("profile_location")}</span>
+                <span>{profile ? `${profile.city ?? ''}, ${profile.region ?? ''}` : tr("profile_location")}</span>
                 <span className="mx-2">·</span>
                 <Star className="w-3.5 h-3.5 text-yellow-500" fill="currentColor" />
-                <span className="text-foreground">4.9</span>
-                <span className="text-muted-foreground">(23 {lang === "fi" ? "arvostelua" : "reviews"})</span>
+                <span className="text-foreground">{profile?.rating ?? 0}</span>
+                <span className="text-muted-foreground">({profile?.review_count ?? 0} {lang === "fi" ? "arvostelua" : "reviews"})</span>
               </div>
             </div>
             {/* Role toggle */}
@@ -169,10 +186,12 @@ export function UserProfile() {
                 </h3>
                 <div className="space-y-3">
                   {[
-                    { labelKey: "profile_stat_listings" as const, value: "8" },
-                    { labelKey: "profile_stat_sold" as const, value: "€ 340" },
-                    { labelKey: "profile_stat_buyers" as const, value: "23" },
-                    { labelKey: "profile_stat_member" as const, value: lang === "fi" ? "Maaliskuu 2024" : "Mar 2024" },
+                      { labelKey: "profile_stat_listings" as const, value: String(myListings.length) },
+                      { labelKey: "profile_stat_sold" as const, value: `€ ${profile?.total_sales_eur ?? 0}` },
+                      { labelKey: "profile_stat_buyers" as const, value: String(profile?.review_count ?? 0) },
+                      { labelKey: "profile_stat_member" as const, value: profile?.created_at
+                        ? new Date(profile.created_at).toLocaleDateString(lang === "fi" ? "fi-FI" : "en-GB", { month: "long", year: "numeric" })
+                        : "-" },
                   ].map((s) => (
                     <div key={s.labelKey} className="flex items-center justify-between">
                       <span className="text-muted-foreground text-sm">{tr(s.labelKey)}</span>
@@ -188,9 +207,9 @@ export function UserProfile() {
                 </h3>
                 <div className="space-y-2">
                   {[
-                    { labelKey: "profile_verified_phone" as const, ok: true },
-                    { labelKey: "profile_verified_id" as const, ok: true },
-                    { labelKey: "profile_verified_food" as const, ok: false },
+                    { labelKey: "profile_verified_phone" as const, ok: profile?.phone_verified ?? false },
+                    { labelKey: "profile_verified_id" as const, ok: profile?.identity_verified ?? false },
+                    { labelKey: "profile_verified_food" as const, ok: profile?.food_licence ?? false },
                   ].map((b) => (
                     <div key={b.labelKey} className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: b.ok ? "#2A5012" : "#C2BDB0" }} />

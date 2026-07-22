@@ -1,7 +1,8 @@
 import { MapPin, Calendar, Star, Filter, SlidersHorizontal, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLang } from "../i18n/LanguageContext";
-import { farms, type Farm } from "../data/farms";
+import { type Farm } from "../data/farms";
+import { fetchFarmListings } from "../../services/farmListings";
 
 interface FarmerFeedProps {
   onSelectFarm?: (farm: Farm) => void;
@@ -12,6 +13,29 @@ export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
   const [activeFilter, setActiveFilter] = useState("all");
   const [activeSortIndex, setActiveSortIndex] = useState(0);
   const [showSort, setShowSort] = useState(false);
+
+  // ── NEW: Supabase state ──────────────────────────────────
+  const [farms, setFarms] = useState<Farm[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadListings() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await fetchFarmListings();
+        setFarms(data);
+      } catch (err) {
+        console.error(err);
+        setError("Ilmoitusten lataaminen epäonnistui. / Failed to load listings.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadListings();
+  }, []);
+  // ── END NEW ──────────────────────────────────────────────
 
   const filterChips = [
     { id: "all", label: tr("filter_all") },
@@ -45,7 +69,7 @@ export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
             {tr("farmer_title")}
           </h1>
           <p className="text-muted-foreground text-sm">
-            {filtered.length} {tr("farmer_subtitle_prefix")} · {tr("farmer_subtitle_suffix")}
+            {loading ? "..." : filtered.length} {tr("farmer_subtitle_prefix")} · {tr("farmer_subtitle_suffix")}
           </p>
         </div>
       </div>
@@ -100,16 +124,59 @@ export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((farm) => (
-            <FarmCard key={farm.id} farm={farm} lang={lang} tr={tr} onSelect={() => onSelectFarm?.(farm)} />
-          ))}
-        </div>
+        {/* ── NEW: loading / error / empty states ── */}
+        {loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="bg-card rounded-2xl border border-border overflow-hidden animate-pulse">
+                <div className="bg-secondary" style={{ height: 180 }} />
+                <div className="p-4 flex flex-col gap-3">
+                  <div className="h-4 bg-secondary rounded w-3/4" />
+                  <div className="h-3 bg-secondary rounded w-1/2" />
+                  <div className="h-3 bg-secondary rounded w-full" />
+                  <div className="h-8 bg-secondary rounded w-1/3 mt-2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="text-center py-16">
+            <p className="text-destructive text-sm">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm"
+            >
+              Yritä uudelleen / Try again
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && filtered.length === 0 && (
+          <div className="text-center py-16">
+            <p className="text-muted-foreground text-sm">
+              Ei ilmoituksia tällä hetkellä. / No listings at the moment.
+            </p>
+          </div>
+        )}
+        {/* ── END NEW ── */}
+
+        {!loading && !error && filtered.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filtered.map((farm) => (
+              <FarmCard key={farm.id} farm={farm} lang={lang} tr={tr} onSelect={() => onSelectFarm?.(farm)} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
+// ════════════════════════════════════════════════════════════
+// FarmCard 
+// ════════════════════════════════════════════════════════════
 function FarmCard({
   farm,
   lang,
@@ -208,3 +275,4 @@ function FarmCard({
     </div>
   );
 }
+
