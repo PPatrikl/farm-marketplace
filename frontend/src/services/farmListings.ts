@@ -85,7 +85,7 @@ function mapToFarm(row: SupabaseFarmListing, index: number): Farm {
   }
 
   return {
-    id: index + 1,                            // FarmCard uses number id
+    id: row.id,                                // Use the real Supabase UUID for bookings
     name: row.farm_name,
     location_fi: `${row.farm_city}, ${row.farm_region}`,
     location_en: `${row.farm_city}, ${row.farm_region}`,

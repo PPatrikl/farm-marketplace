@@ -1,5 +1,5 @@
 export interface Farm {
-  id: number;
+  id: number | string;
   name: string;
   location_fi: string;
   location_en: string;

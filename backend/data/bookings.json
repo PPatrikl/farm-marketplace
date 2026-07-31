@@ -1,0 +1,42 @@
+[
+  {
+    "id": "1785506025302-22f9eb08673698",
+    "listing_id": "607e04c0-6e67-48bc-abfa-1368491e8095",
+    "booker_id": null,
+    "status": "pending",
+    "booking_date": "2027-06-23",
+    "party_size": 1,
+    "message": "test",
+    "createdAt": "2026-07-31T13:53:45.302Z"
+  },
+  {
+    "id": "1785506188880-8e0d10794ede18",
+    "listing_id": "607e04c0-6e67-48bc-abfa-1368491e8095",
+    "booker_id": null,
+    "status": "pending",
+    "booking_date": "2027-06-23",
+    "party_size": 1,
+    "message": "test",
+    "createdAt": "2026-07-31T13:56:28.881Z"
+  },
+  {
+    "id": "1785506233469-2ffaabeb2d6f8",
+    "listing_id": "607e04c0-6e67-48bc-abfa-1368491e8095",
+    "booker_id": null,
+    "status": "pending",
+    "booking_date": "2027-06-23",
+    "party_size": 1,
+    "message": "test",
+    "createdAt": "2026-07-31T13:57:13.469Z"
+  },
+  {
+    "id": "1785506306239-a17ae570f3cf68",
+    "listing_id": "607e04c0-6e67-48bc-abfa-1368491e8095",
+    "booker_id": null,
+    "status": "pending",
+    "booking_date": "2027-06-30",
+    "party_size": 1,
+    "message": "Pekka\nPekka@hotmail.com\nampiaisille",
+    "createdAt": "2026-07-31T13:58:26.239Z"
+  }
+]
