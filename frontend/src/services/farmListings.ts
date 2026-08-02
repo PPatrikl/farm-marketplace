@@ -83,9 +83,11 @@ function mapToFarm(row: SupabaseFarmListing, index: number): Farm {
   const unitMap: Record<string, string> = {
     kg: 'kg', h: 'h', day: 'pv', piece: 'kpl', litre: 'L'
   }
+  
+  const farmDescription = (row as any).description || ''
 
   return {
-    id: index + 1,                            // FarmCard uses number id
+    id: row.id,
     name: row.farm_name,
     location_fi: `${row.farm_city}, ${row.farm_region}`,
     location_en: `${row.farm_city}, ${row.farm_region}`,
@@ -109,8 +111,11 @@ function mapToFarm(row: SupabaseFarmListing, index: number): Farm {
     openSpots: row.spots_remaining ?? 0,
     tags_fi,
     tags_en,
-    description_fi: '',
-    description_en: '',
+    //description_fi: '',
+    //description_en: '',
+    description_fi: farmDescription,
+    description_en: farmDescription,
+
     hostName: row.owner_name,
     hostInitials: row.owner_name.split(' ').map((n: string) => n[0]).join('').toUpperCase(),
     hostMemberSince_fi: '',
@@ -177,4 +182,22 @@ export async function fetchJobListings(): Promise<Farm[]> {
   }
 
   return (data as SupabaseFarmListing[]).map(mapToFarm)
+}
+
+/**
+ * Fetch a single farm listing by ID.
+ */
+export async function fetchFarmListingById(id: string | number): Promise<Farm | null> {
+  const { data, error } = await supabase
+    .from('farm_listings_full')
+    .select('*')
+    .eq('id', String(id))
+    .single();
+
+  if (error || !data) {
+    console.error('[farmListings] Error fetching listing by ID:', error?.message);
+    return null;
+  }
+
+  return mapToFarm(data as SupabaseFarmListing, 0);
 }

@@ -7,9 +7,11 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { useLang } from "../i18n/LanguageContext";
 import type { Farm } from "../data/farms";
+import { fetchFarmListingById } from "../../services/farmListings";
+
 
 interface ListingDetailProps {
-  farm: Farm;
+  farmId: string | number; 
   onBack: () => void;
 }
 
@@ -284,14 +286,64 @@ function ContactDrawer({ hostName, onClose }: { hostName: string; onClose: () =>
 }
 
 // ─── Main component ──────────────────────────────────────────────────────────
-export function ListingDetail({ farm, onBack }: ListingDetailProps) {
+export function ListingDetail({ farmId, onBack }: ListingDetailProps) { 
   const { tr, lang } = useLang();
+
+  const [farm, setFarm] = useState<Farm | null>(null); 
+  const [loading, setLoading] = useState<boolean>(true); 
+
   const [saved, setSaved] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [applied, setApplied] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [activeGallery, setActiveGallery] = useState<number | null>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    async function loadFarmData() {
+      setLoading(true);
+      try {
+        const data = await fetchFarmListingById(farmId);
+        setFarm(data);
+      } catch (error) {
+        console.error("Farm loading error:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (farmId) {
+      loadFarmData();
+    }
+  }, [farmId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Ladataan...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!farm) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center">
+          <p className="text-lg font-medium mb-4">Kohdetta ei löytynyt (Object not found)</p>
+          <button 
+            onClick={onBack} 
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg"
+          >
+            Takaisin
+          </button>
+        </div>
+      </div>
+    );
+  }
+
 
   const isPicking = farm.type === "picking";
   const location = lang === "fi" ? farm.location_fi : farm.location_en;
@@ -503,8 +555,10 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
                   {/* Job-specific rows */}
                   <div className="bg-card rounded-2xl border border-border overflow-hidden divide-y divide-border">
                     {[
-                      { icon: Clock, label: tr("det_working_hours"), value: workingHours },
-                      { icon: FileText, label: tr("det_contract_type"), value: contractType },
+                     // { icon: Clock, label: tr("det_working_hours"), value: workingHours },
+                     // { icon: FileText, label: tr("det_contract_type"), value: contractType },
+                      { icon: Clock, label: tr("det_working_hours"), value: workingHours || "Sopimuksen mukaan" },
+                      { icon: FileText, label: tr("det_contract_type"), value: contractType || "Määräaikainen" },
                       { icon: Users, label: tr("det_spots_label"), value: `${farm.openSpots}` },
                     ].map(({ icon: Icon, label, value }) => (
                       <div key={label} className="flex items-center gap-4 px-4 py-3.5">
@@ -707,8 +761,8 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
                     <div className="space-y-3">
                       {[
                         { label: tr("det_season_label"), value: `${farm.dateStart} – ${farm.dateEnd}` },
-                        { label: tr("det_working_hours"), value: workingHours ?? "" },
-                        { label: tr("det_contract_type"), value: contractType ?? "" },
+                        { label: tr("det_working_hours"), value: workingHours ?? "Sopimuksen mukaan" },
+                        { label: tr("det_contract_type"), value: contractType ?? "Määräaikainen" },
                         { label: tr("det_spots_label"), value: `${farm.openSpots}` },
                       ].map(({ label, value }) => (
                         <div key={label} className="flex items-start justify-between gap-3">
