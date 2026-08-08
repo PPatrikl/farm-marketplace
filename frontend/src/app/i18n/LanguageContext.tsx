@@ -4,7 +4,7 @@ import { t, type Lang, type TranslationKey } from "./translations";
 interface LangCtx {
   lang: Lang;
   setLang: (l: Lang) => void;
-  tr: (key: TranslationKey) => any; // Изменено со string на any, чтобы поддерживать массивы календаря
+  tr: (key: TranslationKey) => any; // Changed from string to any to support calendar arrays
 }
 
 const LanguageContext = createContext<LangCtx>({
@@ -15,7 +15,7 @@ const LanguageContext = createContext<LangCtx>({
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>("fi");
-  const tr = (key: TranslationKey): any => t[lang][key]; // Изменено со string на any
+  const tr = (key: TranslationKey): any => t[lang][key]; // Changed from string to any
   
   return (
     <LanguageContext.Provider value={{ lang, setLang, tr }}>

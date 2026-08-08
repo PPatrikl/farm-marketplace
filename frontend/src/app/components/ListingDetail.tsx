@@ -7,8 +7,8 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { useLang } from "../i18n/LanguageContext";
 import type { Farm } from "../data/farms";
+import { supabase } from "../../supabaseClient";
 import { fetchFarmListingById } from "../../services/farmListings";
-
 
 interface ListingDetailProps {
   farmId: string | number; 
@@ -28,6 +28,26 @@ function sameDay(a: Date, b: Date) {
     a.getDate() === b.getDate();
 }
 
+function getSeasonWindow(seasonStart: string, seasonEnd: string, today: Date = new Date()) {
+  const start = isoToDate(seasonStart);
+  const end = isoToDate(seasonEnd);
+
+  for (const year of [today.getFullYear(), today.getFullYear() + 1]) {
+    const candidateStart = new Date(year, start.getMonth(), start.getDate());
+    const candidateEnd = new Date(year, end.getMonth(), end.getDate());
+
+    if (candidateStart <= today && candidateEnd >= today) {
+      return { start: candidateStart, end: candidateEnd };
+    }
+
+    if (candidateStart > today) {
+      return { start: candidateStart, end: candidateEnd };
+    }
+  }
+
+  return { start, end };
+}
+
 function MiniCalendar({
   seasonStart,
   seasonEnd,
@@ -42,9 +62,8 @@ function MiniCalendar({
   const { tr, lang } = useLang();
   const months = (tr("cal_mo") as unknown as string[]);
   const days = (tr("cal_days") as unknown as string[]);
-  const start = isoToDate(seasonStart);
-  const end = isoToDate(seasonEnd);
   const today = new Date();
+  const { start, end } = getSeasonWindow(seasonStart, seasonEnd, today);
 
   const [viewYear, setViewYear] = useState(start.getFullYear());
   const [viewMonth, setViewMonth] = useState(start.getMonth());
@@ -297,6 +316,13 @@ export function ListingDetail({ farmId, onBack }: ListingDetailProps) {
   const [applied, setApplied] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [activeGallery, setActiveGallery] = useState<number | null>(null);
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingName, setBookingName] = useState("");
+  const [bookingEmail, setBookingEmail] = useState("");
+  const [bookingGuests, setBookingGuests] = useState("1");
+  const [bookingNotes, setBookingNotes] = useState("");
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [bookingFeedback, setBookingFeedback] = useState<string | null>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -362,6 +388,13 @@ export function ListingDetail({ farmId, onBack }: ListingDetailProps) {
     return `${months_en[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
   };
 
+  const formatIsoDate = (d: Date) => {
+    const year = d.getFullYear();
+    const month = `${d.getMonth() + 1}`.padStart(2, "0");
+    const day = `${d.getDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   const estimatedTotal = selectedDate
     ? (parseFloat(farm.price) * 5).toFixed(2)
     : null;
@@ -373,6 +406,64 @@ export function ListingDetail({ farmId, onBack }: ListingDetailProps) {
 
   // Description paragraphs
   const paragraphs = description.split("\n\n").filter(Boolean);
+
+  const handleBookingSubmit = async () => {
+    if (!selectedDate) return;
+
+    const name = bookingName.trim();
+    const email = bookingEmail.trim();
+    const guests = Number(bookingGuests) || 1;
+
+    if (!name || !email) {
+      setBookingFeedback(lang === "fi" ? "Anna nimi ja sähköposti." : "Please provide your name and email.");
+      return;
+    }
+
+    setBookingSubmitting(true);
+    setBookingFeedback(null);
+
+    const listingId = typeof farm.id === "string" && farm.id.length > 0
+      ? farm.id
+      : "00000000-0000-0000-0000-000000000000";
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const payload = {
+      listing_id: listingId,
+      booker_id: user?.id ?? null,
+      status: "pending",
+      booking_date: formatIsoDate(selectedDate),
+      party_size: guests,
+      message: `${name}\n${email}\n${bookingNotes.trim()}`.trim() || null,
+    };
+
+    try {
+      const { data, error } = await supabase
+        .from("bookings")
+        .insert([payload])
+        .select("id")
+        .single();
+
+      setBookingSubmitting(false);
+
+      if (error) {
+        throw new Error(error.message || "Booking request failed");
+      }
+
+      setBookingFeedback(lang === "fi" ? "Varaus lähetetty onnistuneesti!" : "Booking submitted successfully!");
+      setBookingOpen(false);
+      setBookingName("");
+      setBookingEmail("");
+      setBookingGuests("1");
+      setBookingNotes("");
+    } catch (error) {
+      setBookingSubmitting(false);
+      console.error("Booking insert failed", error);
+      const detail = error instanceof Error ? error.message : (lang === "fi" ? "Tarkista palvelinyhteys." : "Please check the server connection.");
+      setBookingFeedback(lang === "fi" ? `Varausta ei voitu lähettää: ${detail}` : `The booking could not be submitted: ${detail}`);
+    }
+
+  };
 
   return (
     <div style={{ fontFamily: "'Inter', sans-serif" }} className="min-h-screen bg-background">
@@ -748,10 +839,91 @@ export function ListingDetail({ farmId, onBack }: ListingDetailProps) {
                     {/* CTA */}
                     <button
                       disabled={!selectedDate}
+                      onClick={() => {
+                        setBookingFeedback(null);
+                        setBookingOpen(true);
+                      }}
                       className="w-full py-3.5 rounded-xl font-medium text-sm transition-all bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {tr("det_cta_book")}
                     </button>
+
+                    {bookingOpen && selectedDate && (
+                      <div className="rounded-xl border border-border bg-card p-3 space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-xs font-medium text-foreground">{tr("det_booking_form_title")}</p>
+                            <p className="text-[11px] text-muted-foreground">{formatDate(selectedDate)} • {farm.name}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setBookingOpen(false)}
+                            className="text-[11px] text-muted-foreground hover:text-foreground"
+                          >
+                            {lang === "fi" ? "Sulje" : "Close"}
+                          </button>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-medium text-foreground block">{tr("det_booking_name")}</label>
+                          <input
+                            value={bookingName}
+                            onChange={(e) => setBookingName(e.target.value)}
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring/30"
+                            placeholder={lang === "fi" ? "Etunimi Sukunimi" : "Full name"}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-medium text-foreground block">{tr("det_booking_email")}</label>
+                          <input
+                            type="email"
+                            value={bookingEmail}
+                            onChange={(e) => setBookingEmail(e.target.value)}
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring/30"
+                            placeholder="name@example.com"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-medium text-foreground block">{tr("det_booking_guests")}</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={bookingGuests}
+                            onChange={(e) => setBookingGuests(e.target.value)}
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring/30"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-medium text-foreground block">{tr("det_booking_notes")}</label>
+                          <textarea
+                            value={bookingNotes}
+                            onChange={(e) => setBookingNotes(e.target.value)}
+                            rows={3}
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring/30 resize-none"
+                            placeholder={lang === "fi" ? "Lisätietoja, esim. allergiat tai erityistarpeet" : "Additional details, e.g. allergies or accessibility needs"}
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleBookingSubmit}
+                          disabled={bookingSubmitting}
+                          className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium transition-all hover:bg-primary/90 disabled:opacity-60"
+                        >
+                          {bookingSubmitting ? (lang === "fi" ? "Lähetetään..." : "Submitting...") : tr("det_booking_submit")}
+                        </button>
+
+                        {bookingFeedback ? (
+                          <p className={`text-[11px] ${bookingFeedback.includes("onnistuneesti") || bookingFeedback.includes("successfully") ? "text-primary" : "text-muted-foreground"}`}>
+                            {bookingFeedback}
+                          </p>
+                        ) : null}
+                      </div>
+                    )}
+
                     <p className="text-center text-xs text-muted-foreground">{tr("det_capacity_note")}</p>
                   </>
                 ) : (

@@ -95,9 +95,7 @@ function AppInner() {
         {page === "foragers" && <ForagerMarket />}
         {page === "profile" && <UserProfile />}
         {page === "detail" && selectedFarm && (
-         // <ListingDetail farm={selectedFarm} onBack={handleBackFromDetail} />
-          <ListingDetail farmId={selectedFarm.id} onBack={handleBackFromDetail} /> 
-         // <ListingDetail farmId="27d40411-730d-4890-8dc5-deef94c1009a" onBack={handleBackFromDetail} />
+          <ListingDetail farmId={selectedFarm.id} onBack={handleBackFromDetail} />       
         )}
       </main>
       <AuthModal

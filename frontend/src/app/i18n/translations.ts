@@ -222,6 +222,13 @@ export const t = {
     det_season_label: "Poiminta-aika",
     det_spots_label: "Paikkoja jäljellä",
     det_open_label: "Tila on avoinna",
+    // Booking Form
+    det_booking_form_title: "Varauslomake",
+    det_booking_name: "Koko nimi",
+    det_booking_email: "Sähköposti",
+    det_booking_guests: "Henkilömäärä",
+    det_booking_notes: "Lisätiedot",
+    det_booking_submit: "Vahvista varaus",
     // Job-type sidebar
     det_wage_label: "Tuntipalkka",
     det_contract_duration: "Sopimusaika",
@@ -467,6 +474,13 @@ export const t = {
     det_season_label: "Picking season",
     det_spots_label: "Spots remaining",
     det_open_label: "Farm is open",
+    // Booking Form
+    det_booking_form_title: "Booking Form",
+    det_booking_name: "Full Name",
+    det_booking_email: "Email Address",
+    det_booking_guests: "Number of Guests",
+    det_booking_notes: "Additional Notes",
+    det_booking_submit: "Confirm Booking",
     // Job-type sidebar
     det_wage_label: "Hourly wage",
     det_contract_duration: "Contract period",
