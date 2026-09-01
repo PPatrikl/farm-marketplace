@@ -73,3 +73,149 @@ export async function fetchMushroomListings(): Promise<ForestListing[]> {
 
   return data as ForestListing[]
 }
+
+// --------------new ------------------
+import type { UploadedImage } from './storage'; // SUGGESTED (Claude): needed so `images` is typed correctly below
+
+export interface CreateForestListingInput {
+  seller_id: string;
+  product_name: string;
+  product_type: string;
+  price_per_unit: number;
+  unit: string;
+  quantity: number;
+  city: string;
+  region: string;
+  description?: string;
+  delivery_available?: boolean;
+  pickup_only?: boolean;
+  images?: UploadedImage[]; // SUGGESTED (Claude): was `string[]`. storage.ts now returns { url, path } per file — listing_images.storage_path is NOT NULL, so we need the path alongside the url, not just the url.
+}
+
+export async function createForestListing(input: CreateForestListingInput) {
+  const { data, error } = await supabase
+    .from('forest_listings')
+    .insert([
+      {
+        seller_id: input.seller_id,
+        product_name: input.product_name,
+        product_type: input.product_type,
+        price_per_unit: input.price_per_unit,
+        unit: input.unit,
+        quantity: input.quantity,
+        city: input.city,
+        region: input.region,
+        description: input.description,
+        delivery_available: input.delivery_available ?? false,
+        pickup_only: input.pickup_only ?? true,
+        status: 'active',
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[forestListings] Error creating ad:', error.message); // SUGGESTED (Claude): was '[farmListings]' — wrong log tag, looks copy-pasted from farmListings.ts
+    throw error;
+  }
+
+  // SUGGESTED (Claude): `images` was accepted as a parameter but never written anywhere,
+  // so uploaded photos for forest listings were silently discarded. This mirrors the
+  // listing_images insert already used in farmListings.ts's createFarmListing, using
+  // forest_listing_id instead of farm_listing_id.
+  if (data && input.images && input.images.length > 0) {
+    const imageRecords = input.images.map((img, index) => ({
+      forest_listing_id: data.id,
+      storage_path: img.path,
+      url: img.url,
+      is_primary: index === 0,
+      sort_order: index,
+    }));
+
+    const { error: imagesError } = await supabase
+      .from('listing_images')
+      .insert(imageRecords);
+
+    if (imagesError) {
+      console.error('[forestListings] Error saving images:', imagesError.message);
+    }
+  }
+
+  return data;
+}
+// end of new ----------------------
+
+// --------------new (edit/delete, added by Claude — not yet reviewed) ------------------
+export interface UpdateForestListingInput {
+  product_name?: string;
+  product_type?: string;
+  price_per_unit?: number;
+  unit?: string;
+  quantity?: number;
+  city?: string;
+  region?: string;
+  description?: string;
+  delivery_available?: boolean;
+  pickup_only?: boolean;
+  images?: UploadedImage[]; // any images here are appended as new listing_images rows
+}
+
+export async function updateForestListing(listingId: string, input: UpdateForestListingInput) {
+  const patch: Record<string, any> = {};
+
+  if (input.product_name !== undefined) patch.product_name = input.product_name;
+  if (input.product_type !== undefined) patch.product_type = input.product_type;
+  if (input.price_per_unit !== undefined) patch.price_per_unit = input.price_per_unit;
+  if (input.unit !== undefined) patch.unit = input.unit;
+  if (input.quantity !== undefined) patch.quantity = input.quantity;
+  if (input.city !== undefined) patch.city = input.city;
+  if (input.region !== undefined) patch.region = input.region;
+  if (input.description !== undefined) patch.description = input.description;
+  if (input.delivery_available !== undefined) patch.delivery_available = input.delivery_available;
+  if (input.pickup_only !== undefined) patch.pickup_only = input.pickup_only;
+
+  const { data, error } = await supabase
+    .from('forest_listings')
+    .update(patch)
+    .eq('id', listingId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[forestListings] Error updating ad:', error.message);
+    throw error;
+  }
+
+  if (input.images && input.images.length > 0) {
+    const imageRecords = input.images.map((img, index) => ({
+      forest_listing_id: listingId,
+      storage_path: img.path,
+      url: img.url,
+      is_primary: false, // existing primary image, if any, is left untouched
+      sort_order: index,
+    }));
+
+    const { error: imagesError } = await supabase
+      .from('listing_images')
+      .insert(imageRecords);
+
+    if (imagesError) {
+      console.error('[forestListings] Error saving images:', imagesError.message);
+    }
+  }
+
+  return data;
+}
+
+export async function deleteForestListing(listingId: string) {
+  const { error } = await supabase
+    .from('forest_listings')
+    .delete()
+    .eq('id', listingId);
+
+  if (error) {
+    console.error('[forestListings] Error deleting ad:', error.message);
+    throw error;
+  }
+}
+// end of new (edit/delete) ----------------------

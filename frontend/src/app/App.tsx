@@ -8,6 +8,7 @@ import { UserProfile } from "./components/UserProfile";
 import { ListingDetail } from "./components/ListingDetail";
 import { AuthModal } from "./components/AuthModal";
 import type { Farm } from "./data/farms";
+import type { FarmWithVerification, ListingStatus } from "../services/farmListings";
 import {supabase} from "../supabaseClient";
 
 type Page = "landing" | "farmers" | "foragers" | "profile" | "detail";
@@ -15,13 +16,11 @@ type Page = "landing" | "farmers" | "foragers" | "profile" | "detail";
 function AppInner() {
   {/* MARKER-MAKE-KIT-INVOKED */}
   const [page, setPage] = useState<Page>("landing");
-  const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
+  //const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
+  const [selectedFarm, setSelectedFarm] = useState<FarmWithVerification | null>(null);
+
 
   const [user, setUser] = useState<string | null>(null);
-      // Check for existing Supabase session on app load and listen for auth changes.
-      // Without this, the user gets logged out on every page refresh because
-      // useState resets to null. onAuthStateChange also handles login/logout
-      // events automatically across the whole app
     useEffect(() => {
       // Check if user is already logged in on page load
       supabase.auth.getSession().then(({ data: { session } }) => {
@@ -58,8 +57,18 @@ function AppInner() {
     }
   };
 
-  const handleSelectFarm = (farm: Farm) => {
-    setSelectedFarm(farm);
+  // const handleSelectFarm = (farm: Farm) => {
+  //   setSelectedFarm(farm);
+    const handleSelectFarm = (farm: Farm | FarmWithVerification) => {
+    const farmWithVerification: FarmWithVerification = {
+      ...farm,
+      hostPhoneVerified: "hostPhoneVerified" in farm ? farm.hostPhoneVerified : false,
+      hostIdentityVerified: "hostIdentityVerified" in farm ? farm.hostIdentityVerified : false,
+      hostFoodLicenceVerified: "hostFoodLicenceVerified" in farm ? farm.hostFoodLicenceVerified : false,
+      listingStatus: "listingStatus" in farm ? farm.listingStatus : "active",
+    };
+
+    setSelectedFarm(farmWithVerification);
     setPage("detail");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };

@@ -236,7 +236,7 @@ function FarmCard({
           <span>{location}</span>
         </div>
 
-        <p className="text-foreground text-sm mb-3">{produce}</p>
+        <p className="text-foreground text-sm mb-3">{farm.title ?? produce}</p>
 
         <div className="flex flex-wrap gap-1.5 mb-4">
           {tags.map((tag) => (
