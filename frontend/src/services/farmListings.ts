@@ -1,7 +1,9 @@
 // services/farmListings.ts
+
 import { supabase } from '../supabaseClient'
 import type { Farm } from '../app/data/farms'
 import type { UploadedImage } from './storage'
+import { formatShortDate } from '../utils/dates';
 
 // ── Farm amenities (all NOT NULL in DB) ───────────────────────
 export interface FarmAmenities {
@@ -163,6 +165,9 @@ interface SupabaseFarmListing {
   farm_review_count: number
   owner_name: string
 
+  booking_required: boolean;   
+  farm_address: string | null; 
+
   owner_id?: string
   is_organic: boolean
   is_accessible: boolean
@@ -253,6 +258,9 @@ export type FarmWithVerification = Farm & {
   hostFoodLicenceVerified: boolean;
 
   listingStatus: ListingStatus;
+  bookingRequired: boolean;    
+  spotsTotal: number | null;   
+  address: string | null;      
 };
 
 function mapToFarm(
@@ -278,10 +286,10 @@ function mapToFarm(
     if (row.machine_work)    { tags_fi.push('Konetyö');             tags_en.push('Machinery work') }
   }
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso)
-    return `${d.getDate()}.${d.getMonth() + 1}.`
-  }
+  // const formatDate = (iso: string) => {
+  //   const d = new Date(iso)
+  //   return `${d.getDate()}.${d.getMonth() + 1}.`
+  // }
   const unitMap: Record<string, string> = { kg: 'kg', h: 'h', day: 'pv', piece: 'kpl', litre: 'L' }
 
   const sortedImages = [...images].sort((a, b) => a.sort_order - b.sort_order);
@@ -303,8 +311,8 @@ function mapToFarm(
     produce_en: row.crop_type ?? '',
     price: Number(row.price).toFixed(2),
     unit: unitMap[row.price_unit] ?? row.price_unit,
-    dateStart: formatDate(row.date_start),
-    dateEnd: formatDate(row.date_end),
+    dateStart: formatShortDate(row.date_start),
+    dateEnd: formatShortDate(row.date_end),
     seasonStart: row.date_start,
     seasonEnd: row.date_end,
     rating: row.farm_rating ?? 0,
@@ -327,6 +335,9 @@ function mapToFarm(
     hostIdentityVerified: verification.identity_verified,
     hostFoodLicenceVerified: false,
     listingStatus: getEffectiveStatus({ status: row.status, date_end: row.date_end }),
+    bookingRequired: Boolean(row.booking_required),
+    spotsTotal: row.spots_total ?? null,
+    address: row.farm_address ?? null,
   }
 }
 
@@ -538,7 +549,6 @@ export async function updateFarmListing(listingId: string, input: UpdateFarmList
   if (input.capacity !== undefined) {
     const newTotal = Math.max(0, Math.round(input.capacity));
       patch.spots_total = newTotal;
-      patch.spots_remaining = newTotal;
     }
 
   if (input.date_end !== undefined) {

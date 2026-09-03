@@ -40,7 +40,7 @@ export interface Farm {
   hostRating: number;
   hostReviews: number;
 }
-
+/* 
 export const farms: Farm[] = [
   {
     id: 1,
@@ -279,3 +279,4 @@ export const farms: Farm[] = [
     hostReviews: 51,
   },
 ];
+ */

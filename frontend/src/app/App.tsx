@@ -8,7 +8,7 @@ import { UserProfile } from "./components/UserProfile";
 import { ListingDetail } from "./components/ListingDetail";
 import { AuthModal } from "./components/AuthModal";
 import type { Farm } from "./data/farms";
-import type { FarmWithVerification, ListingStatus } from "../services/farmListings";
+import type { FarmWithVerification } from "../services/farmListings";
 import {supabase} from "../supabaseClient";
 
 type Page = "landing" | "farmers" | "foragers" | "profile" | "detail";
@@ -18,7 +18,6 @@ function AppInner() {
   const [page, setPage] = useState<Page>("landing");
   //const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
   const [selectedFarm, setSelectedFarm] = useState<FarmWithVerification | null>(null);
-
 
   const [user, setUser] = useState<string | null>(null);
     useEffect(() => {
@@ -59,14 +58,15 @@ function AppInner() {
 
   // const handleSelectFarm = (farm: Farm) => {
   //   setSelectedFarm(farm);
-    const handleSelectFarm = (farm: Farm | FarmWithVerification) => {
+  const handleSelectFarm = (farm: Farm | FarmWithVerification) => {
     const farmWithVerification: FarmWithVerification = {
-      ...farm,
-      hostPhoneVerified: "hostPhoneVerified" in farm ? farm.hostPhoneVerified : false,
-      hostIdentityVerified: "hostIdentityVerified" in farm ? farm.hostIdentityVerified : false,
-      hostFoodLicenceVerified: "hostFoodLicenceVerified" in farm ? farm.hostFoodLicenceVerified : false,
-      listingStatus: "listingStatus" in farm ? farm.listingStatus : "active",
-    };
+    ...farm,
+    id: String(farm.id), 
+    hostPhoneVerified: "hostPhoneVerified" in farm ? farm.hostPhoneVerified : false,
+    hostIdentityVerified: "hostIdentityVerified" in farm ? farm.hostIdentityVerified : false,
+    hostFoodLicenceVerified: "hostFoodLicenceVerified" in farm ? farm.hostFoodLicenceVerified : false,
+    listingStatus: "listingStatus" in farm ? farm.listingStatus : "active",
+  } as FarmWithVerification;
 
     setSelectedFarm(farmWithVerification);
     setPage("detail");

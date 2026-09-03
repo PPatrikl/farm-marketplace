@@ -4,14 +4,14 @@ import {
   Home, Utensils, Car, Dog, Users,
   FileText, ChevronLeft, ChevronRight as ChevronRightIcon,
   MessageSquare, Send, ShieldCheck, Sprout,
-  Accessibility, Trees, Baby, Tractor, AlertTriangle, Coins, Banknote,
+  Accessibility, Tractor, AlertTriangle, Banknote,
 } from "lucide-react";
 
 import { useState, useEffect, useRef } from "react";
 import { useLang } from "../i18n/LanguageContext";
 import { supabase } from "../../supabaseClient";
 import type { FarmWithVerification } from "../../services/farmListings";
-import { isoToDate, sameDay, formatShortDate, formatLongDate, formatIsoDate } from "../../utils/dates";
+import { isoToDate, sameDay, formatLongDate, formatIsoDate } from "../../utils/dates";
 
 interface ListingDetailProps {
   farm: FarmWithVerification;
@@ -470,11 +470,13 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
                 </span>
               </div>
               <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500, lineHeight: 1.15, fontSize: "clamp(1.6rem, 3.5vw, 2.25rem)" }} className="text-foreground">
-                {farm.title ?? farm.name}
+                {farm.name}{produce ? ` - ${produce}` : ""}
               </h1>
-              <p className="text-muted-foreground text-sm mt-1">
-                {farm.name}{produce ? ` · ${produce}` : ""}
-              </p>
+                {farm.title && (
+                  <p className="text-muted-foreground text-base leading-relaxed pt-1">
+                    {farm.title}
+                  </p>
+                )}
             </div>
 
             <section>
@@ -501,11 +503,14 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
                     </div>
                     <div className="flex-1 flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">{tr("det_spots_label")}</span>
-                      <span className="text-sm font-medium text-foreground">{farm.openSpots}</span>
+                      <span className="text-sm font-medium text-foreground">
+                        {farm.spotsTotal != null ? `${farm.openSpots} / ${farm.spotsTotal}` : farm.openSpots}
+                      </span>
                     </div>
                   </div>
                 </div>
               )}
+
             </section>
 
             {isPicking && (
@@ -543,7 +548,7 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
                     <div className="absolute inset-0 rounded-full bg-primary animate-ping opacity-30" />
                   </div>
                   <div className="bg-foreground text-background text-xs px-3 py-1.5 rounded-full shadow-lg font-medium">
-                    {farm.city} · {lang === "fi" ? farm.region_fi : farm.region_en}
+                    {farm.address ? `${farm.address}, ` : ""}{farm.city} · {lang === "fi" ? farm.region_fi : farm.region_en}
                   </div>
                 </div>
               </div>
