@@ -127,8 +127,7 @@ export function PriceField({ label, value, onChange }: { label: string; value: s
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span>
         <input
           type="number"
-          step="0.50"
-          min="0.01"
+          step="any"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="0.00"

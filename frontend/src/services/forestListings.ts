@@ -75,7 +75,7 @@ export async function fetchMushroomListings(): Promise<ForestListing[]> {
 }
 
 // --------------new ------------------
-import type { UploadedImage } from './storage'; // SUGGESTED (Claude): needed so `images` is typed correctly below
+import type { UploadedImage } from './storage'; 
 
 export interface CreateForestListingInput {
   seller_id: string;
@@ -89,7 +89,7 @@ export interface CreateForestListingInput {
   description?: string;
   delivery_available?: boolean;
   pickup_only?: boolean;
-  images?: UploadedImage[]; // SUGGESTED (Claude): was `string[]`. storage.ts now returns { url, path } per file — listing_images.storage_path is NOT NULL, so we need the path alongside the url, not just the url.
+  images?: UploadedImage[]; 
 }
 
 export async function createForestListing(input: CreateForestListingInput) {
@@ -115,14 +115,10 @@ export async function createForestListing(input: CreateForestListingInput) {
     .single();
 
   if (error) {
-    console.error('[forestListings] Error creating ad:', error.message); // SUGGESTED (Claude): was '[farmListings]' — wrong log tag, looks copy-pasted from farmListings.ts
+    console.error('[forestListings] Error creating ad:', error.message); 
     throw error;
   }
 
-  // SUGGESTED (Claude): `images` was accepted as a parameter but never written anywhere,
-  // so uploaded photos for forest listings were silently discarded. This mirrors the
-  // listing_images insert already used in farmListings.ts's createFarmListing, using
-  // forest_listing_id instead of farm_listing_id.
   if (data && input.images && input.images.length > 0) {
     const imageRecords = input.images.map((img, index) => ({
       forest_listing_id: data.id,
@@ -143,7 +139,7 @@ export async function createForestListing(input: CreateForestListingInput) {
 
   return data;
 }
-// end of new ----------------------
+
 
 // --------------new (edit/delete, added by Claude — not yet reviewed) ------------------
 export interface UpdateForestListingInput {
@@ -191,7 +187,7 @@ export async function updateForestListing(listingId: string, input: UpdateForest
       forest_listing_id: listingId,
       storage_path: img.path,
       url: img.url,
-      is_primary: false, // existing primary image, if any, is left untouched
+      is_primary: false, 
       sort_order: index,
     }));
 
@@ -218,4 +214,4 @@ export async function deleteForestListing(listingId: string) {
     throw error;
   }
 }
-// end of new (edit/delete) ----------------------
+
