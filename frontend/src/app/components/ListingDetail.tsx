@@ -348,6 +348,10 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
   const [saved, setSaved] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [applied, setApplied] = useState(false);
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyMessage, setApplyMessage] = useState("");
+  const [applySubmitting, setApplySubmitting] = useState(false);
+  const [applyFeedback, setApplyFeedback] = useState<string | null>(null);
   const [contactOpen, setContactOpen] = useState(false);
   const [activeGallery, setActiveGallery] = useState<number | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -416,6 +420,96 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
       setBookingFeedback(lang === "fi" ? `Varausta ei voitu lähettää: ${detail}` : `The booking could not be submitted: ${detail}`);
     } finally {
       setBookingSubmitting(false);
+    }
+  };
+
+  const handleApplySubmit = async () => {
+    if (applied) return;
+
+    setApplySubmitting(true);
+    setApplyFeedback(null);
+
+    const listingId = typeof farm.id === "string" && farm.id.length > 0
+      ? farm.id
+      : "00000000-0000-0000-0000-000000000000";
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      setApplySubmitting(false);
+      setApplyFeedback(lang === "fi" ? "Kirjaudu sisään lähettääksesi hakemuksen." : "Please sign in to submit your application.");
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name,phone,city,region")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const profileName = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || "";
+    const profilePhone = profile?.phone || "";
+    const profileCity = profile?.city || "";
+    const profileRegion = profile?.region || "";
+
+    const userNote = applyMessage.trim();
+    const profileBlock = [
+      `Name: ${profileName || "-"}`,
+      `Email: ${user.email || "-"}`,
+      `Phone: ${profilePhone || "-"}`,
+      `Location: ${[profileCity, profileRegion].filter(Boolean).join(", ") || "-"}`,
+    ].join("\n");
+
+    const note = [userNote, "", "--- Applicant profile ---", profileBlock]
+      .filter((row, index) => row || index !== 1)
+      .join("\n")
+      .trim();
+
+    const payload = {
+      listing_id: listingId,
+      applicant_id: user.id,
+      status: "pending",
+      message: note || null,
+    };
+
+    try {
+      const response = await fetch("http://localhost:3001/api/applications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Application request failed");
+      }
+
+      setApplySubmitting(false);
+      setApplied(true);
+      setApplyOpen(false);
+      setApplyMessage("");
+      setApplyFeedback(lang === "fi" ? "Hakemus lähetetty onnistuneesti!" : "Application submitted successfully!");
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "";
+      const isDuplicateApplication =
+        detail.includes("applications_listing_id_applicant_id_key")
+        || detail.toLowerCase().includes("duplicate key value");
+
+      if (isDuplicateApplication) {
+        setApplySubmitting(false);
+        setApplied(true);
+        setApplyOpen(false);
+        setApplyFeedback(lang === "fi" ? "Olet jo lähettänyt hakemuksen tähän paikkaan." : "You have already applied to this listing.");
+        return;
+      }
+
+      setApplySubmitting(false);
+      console.error("Application insert failed", error);
+      const safeDetail = detail || (lang === "fi" ? "Tarkista palvelinyhteys." : "Please check the server connection.");
+      setApplyFeedback(lang === "fi" ? `Hakemusta ei voitu lähettää: ${safeDetail}` : `The application could not be submitted: ${safeDetail}`);
     }
   };
 
@@ -677,11 +771,70 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
 
                     <button
                       disabled={!isBookable}
-                      onClick={() => !applied && setApplied(true)}
-                      className={`w-full py-3.5 rounded-xl font-medium text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed ${applied ? "bg-secondary text-secondary-foreground cursor-default" : "bg-accent text-accent-foreground hover:bg-accent/85"}`}
+                      onClick={() => {
+                        if (applied) return;
+                        setApplyFeedback(null);
+                        setApplyOpen((prev) => !prev);
+                      }}
+                      className={`w-full py-3.5 rounded-xl font-medium text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                        applied
+                          ? "bg-secondary text-secondary-foreground cursor-default"
+                          : "bg-accent text-accent-foreground hover:bg-accent/85"
+                      }`}
                     >
                       {applied ? tr("det_applied_state") : tr("det_cta_apply")}
                     </button>
+
+                    {applyOpen && !applied ? (
+                      <div className="rounded-xl border border-border bg-card p-3 space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-xs font-medium text-foreground">{lang === "fi" ? "Lähetä hakemus" : "Send application"}</p>
+                            <p className="text-[11px] text-muted-foreground">{farm.name}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setApplyOpen(false)}
+                            className="text-[11px] text-muted-foreground hover:text-foreground"
+                          >
+                            {lang === "fi" ? "Sulje" : "Close"}
+                          </button>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-medium text-foreground block">{lang === "fi" ? "Hakemusviesti" : "Application message"}</label>
+                          <textarea
+                            value={applyMessage}
+                            onChange={(e) => setApplyMessage(e.target.value)}
+                            rows={4}
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring/30 resize-none"
+                            placeholder={lang === "fi" ? "Kerro lyhyesti kokemuksestasi ja milloin voit aloittaa" : "Briefly describe your experience and availability"}
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleApplySubmit}
+                          disabled={applySubmitting}
+                          className="w-full py-2.5 rounded-lg bg-accent text-accent-foreground text-sm font-medium transition-all hover:bg-accent/85 disabled:opacity-60"
+                        >
+                          {applySubmitting ? (lang === "fi" ? "Lähetetään..." : "Submitting...") : (lang === "fi" ? "Lähetä hakemus" : "Submit application")}
+                        </button>
+
+                        {applyFeedback ? (
+                          <p className={`text-[11px] ${applyFeedback.includes("onnistuneesti") || applyFeedback.includes("successfully") ? "text-primary" : "text-muted-foreground"}`}>
+                            {applyFeedback}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {!applyOpen && applyFeedback ? (
+                      <p className={`text-[11px] ${applyFeedback.includes("onnistuneesti") || applyFeedback.includes("successfully") ? "text-primary" : "text-muted-foreground"}`}>
+                        {applyFeedback}
+                      </p>
+                    ) : null}
+
                     <p className="text-center text-xs text-muted-foreground">{tr("det_apply_hint")}</p>
                   </>
                 )}
