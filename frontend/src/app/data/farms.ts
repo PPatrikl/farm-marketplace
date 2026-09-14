@@ -1,5 +1,6 @@
 export interface Farm {
   id: number | string;
+  title?: string;
   name: string;
   location_fi: string;
   location_en: string;
@@ -39,7 +40,7 @@ export interface Farm {
   hostRating: number;
   hostReviews: number;
 }
-
+/* 
 export const farms: Farm[] = [
   {
     id: 1,
@@ -278,3 +279,4 @@ export const farms: Farm[] = [
     hostReviews: 51,
   },
 ];
+ */
