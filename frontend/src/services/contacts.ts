@@ -1,28 +1,26 @@
 // src/services/contacts.ts
-//import { supabase } from '../supabaseClient'
+
+import { supabase } from '../supabaseClient'
 
 interface SendContactParams {
-  forest_listing_id?: string;
-  farm_listing_id?: string;
-  seller_id?: string; 
-  name: string;
-  email: string;
-  message: string;
-  website?: string; // honeypot, у реальных пользователей всегда пусто
+  forest_listing_id?: string
+  farm_listing_id?: string
+  receiver_id: string
+  name: string
+  email: string
+  message: string
+  website?: string // honeypot
 }
 
 export async function sendContactMessage(params: SendContactParams) {
-  const response = await fetch("http://localhost:3001/api/contacts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
+  const { data, error } = await supabase.functions.invoke('send-contact-message', {
+    body: params,
+  })
 
-  const result = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(result?.error || "Contact request failed");
+  if (error) {
+    console.error('[contacts] send-contact-message error:', error.message)
+    throw new Error(error.message || 'Contact request failed')
   }
 
-  return result;
+  return data
 }

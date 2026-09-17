@@ -23,6 +23,7 @@ interface SupabaseFarmListing {
   farm_region: string
   farm_rating: number | null
   farm_review_count: number
+  owner_id: string
   owner_name: string
   // Farm amenities
   is_organic: boolean
@@ -112,6 +113,7 @@ function mapToFarm(row: SupabaseFarmListing, index: number): Farm {
     description_fi: '',
     description_en: '',
     hostName: row.owner_name,
+    hostId: row.owner_id,
     hostInitials: row.owner_name.split(' ').map((n: string) => n[0]).join('').toUpperCase(),
     hostMemberSince_fi: '',
     hostMemberSince_en: '',

@@ -1,3 +1,4 @@
+// src/app/components/ListingDetail.tsx
 import {
   ChevronRight, MapPin, Star, Share2, Heart, CheckCircle,
   Home, Briefcase, Users, Utensils, Car, TreePine, Dog,
@@ -8,6 +9,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLang } from "../i18n/LanguageContext";
 import type { Farm } from "../data/farms";
 import { supabase } from "../../supabaseClient";
+import { ContactFormModal } from "./ContactFormModal";
 
 interface ListingDetailProps {
   farm: Farm;
@@ -1032,13 +1034,17 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
         </div>
       </div>
 
-      {/* ── Contact drawer ─────────────────────────────────────────────── */}
-      {contactOpen && (
-        <ContactDrawer
-          hostName={farm.hostName}
-          onClose={() => setContactOpen(false)}
-        />
-      )}
+      {/* ── Contact modal ───────────────────────────────────────────────── */}
+      <ContactFormModal
+        open={contactOpen}
+        onClose={() => setContactOpen(false)}
+        recipientName={farm.hostName}
+        listingTitle={`${farm.name} — ${produce}`}
+        listingId={String(farm.id)}
+        listingType={isPicking ? "farm" : "farm"} // и picking, и job —  farm_listing_id
+        sellerId={farm.hostId} // ← 
+        onSuccess={() => {/* optional: local "sent" toast */}}
+      />
 
       {/* ── Lightbox ────────────────────────────────────────────────────── */}
       {activeGallery !== null && (

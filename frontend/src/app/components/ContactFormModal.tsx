@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { X, Send, CheckCircle, AlertCircle, Loader2, User, Mail, MessageSquare, Leaf } from "lucide-react";
 import { useLang } from "../i18n/LanguageContext";
 import { sendContactMessage } from "../../services/contacts";
+import { supabase } from "../../supabaseClient";
 
 interface ContactFormModalProps {
   open: boolean;
@@ -9,7 +10,7 @@ interface ContactFormModalProps {
   recipientName?: string;
   listingTitle?: string;
   listingId?: string;    
-  listingType?: "forest" | "farm"; // <-- разводим лес/ферму явно  
+  listingType?: "forest" | "farm"; 
   sellerId?: string;       
   onSuccess?: () => void;  
 }
@@ -65,16 +66,45 @@ export function ContactFormModal({
   const [phase, setPhase] = useState<"form" | "loading" | "success">("form");
   const firstInputRef = useRef<HTMLInputElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Reset on open/close
   useEffect(() => {
-    if (open) {
-      setForm({ name: "", email: "", message: "", website: "" });
-      setErrors({});
-      setTouched({ name: false, email: false, message: false, website: false });
-      setPhase("form");
-      setTimeout(() => firstInputRef.current?.focus(), 80);
-    }
+    if (!open) return;
+
+    let cancelled = false;
+
+    setForm({ name: "", email: "", message: "", website: "" });
+    setErrors({});
+    setTouched({ name: false, email: false, message: false, website: false });
+    setPhase("form");
+    setIsAuthenticated(false);
+    setTimeout(() => firstInputRef.current?.focus(), 80);
+
+    // Insert the name and email of the authorized user, if they are logged in
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+
+      if (cancelled) return;
+
+      setIsAuthenticated(true);
+      setForm((prev) => ({
+        ...prev,
+        name: profile?.full_name ?? prev.name,
+        email: user.email ?? prev.email,
+      }));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   // Trap scroll
@@ -109,44 +139,39 @@ export function ContactFormModal({
     setErrors(validate(form, lang));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const all: Record<keyof FormState, boolean> = { name: true, email: true, message: true, website: true };
-    setTouched(all);
-    const errs = validate(form, lang);
-    setErrors(errs);
-    if (Object.keys(errs).length > 0) return;
+  
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  const all: Record<keyof FormState, boolean> = { name: true, email: true, message: true, website: true };
+  setTouched(all);
+  const errs = validate(form, lang);
+  setErrors(errs);
+  if (Object.keys(errs).length > 0) return;
 
-    setPhase("loading");
-    
-   try {
+  if (!sellerId) {
+    console.error("ContactFormModal: sellerId is missing, cannot send message");
+    return;
+  }
+
+  setPhase("loading");
+
+  try {
     await sendContactMessage({
-        forest_listing_id: listingType === "forest" ? listingId : undefined,
-        farm_listing_id: listingType === "farm" ? listingId : undefined,
-        seller_id: sellerId,
-        name: form.name,
-        email: form.email,
-        message: form.message,
-        website: form.website,
+      forest_listing_id: listingType === "forest" ? listingId : undefined,
+      farm_listing_id: listingType === "farm" ? listingId : undefined,
+      receiver_id: sellerId, 
+      name: form.name,
+      email: form.email,
+      message: form.message,
+      website: form.website,
     });
     setPhase("success");
     onSuccess?.();
-    } catch (err) {
+  } catch (err) {
     console.error("Viestin lähetys epäonnistui:", err);
     setPhase("form");
-    }
+  }
 };
-//   const handleSubmit = (e: React.FormEvent) => {
-//     e.preventDefault();
-//     const all = { name: true, email: true, message: true };
-//     setTouched(all);
-//     const errs = validate(form, lang);
-//     setErrors(errs);
-//     if (Object.keys(errs).length > 0) return;
-
-//     setPhase("loading");
-//     setTimeout(() => setPhase("success"), 1600);
-//   };
 
   const isFieldError = (field: keyof FieldError) => touched[field] && !!liveErrors[field];
 
@@ -225,6 +250,13 @@ export function ContactFormModal({
         {/* ── Form / Loading / Success ──────────────────────────────── */}
         {phase === "form" && (
           <form onSubmit={handleSubmit} noValidate className="px-6 py-5 space-y-4">
+            {isAuthenticated && (
+                <p className="text-xs text-muted-foreground -mt-1">
+                  {fi
+                    ? "Tietosi on täytetty automaattisesti tilisi perusteella."
+                    : "Your details were filled in automatically from your account."}
+                </p>
+              )}
             {/* Name */}
             <div>
               <label
