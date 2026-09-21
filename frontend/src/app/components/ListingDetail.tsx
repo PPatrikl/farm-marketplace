@@ -1,4 +1,4 @@
-// ─── src/app/components/ListingDetail.tsx ─────────────────────────────────────
+// src/app/components/ListingDetail.tsx
 import {
   ChevronRight, MapPin, Star, Share2, Heart, CheckCircle,
   Home, Utensils, Car, Dog, Users,
@@ -12,6 +12,7 @@ import { useLang } from "../i18n/LanguageContext";
 import { supabase } from "../../supabaseClient";
 import type { FarmWithVerification } from "../../services/farmListings";
 import { isoToDate, sameDay, formatLongDate, formatIsoDate } from "../../utils/dates";
+import { ContactFormModal } from "./ContactFormModal";
 
 interface ListingDetailProps {
   farm: FarmWithVerification;
@@ -732,7 +733,17 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
         </div>
       </div>
 
-      {contactOpen && <ContactDrawer hostName={farm.hostName} onClose={() => setContactOpen(false)} />}
+      {/* ── Contact modal ───────────────────────────────────────────────── */}
+      <ContactFormModal
+        open={contactOpen}
+        onClose={() => setContactOpen(false)}
+        recipientName={farm.hostName}
+        listingTitle={`${farm.name} — ${produce}`}
+        listingId={String(farm.id)}
+        listingType={isPicking ? "farm" : "farm"} // и picking, и job —  farm_listing_id
+        sellerId={farm.hostId} // ← 
+        onSuccess={() => {/* optional: local "sent" toast */}}
+      />
 
       {activeGallery !== null && (
         <Lightbox

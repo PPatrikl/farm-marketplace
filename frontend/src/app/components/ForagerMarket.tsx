@@ -2,7 +2,7 @@ import { MapPin, Phone, MessageCircle, Filter, Scale, Clock, Search } from "luci
 import { useState, useEffect } from "react";
 import { useLang } from "../i18n/LanguageContext";
 import { fetchForestListings, type ForestListing } from "../../services/forestListings";
-
+import { ContactFormModal } from "./ContactFormModal";
 
 /** ForagerMarket component displays a list of forest listings with filtering and search functionality. */
 export function ForagerMarket() {
@@ -27,9 +27,16 @@ export function ForagerMarket() {
     }
     load();
   }, []);
+
   const [activeFilter, setActiveFilter] = useState("all"); 
   const [search, setSearch] = useState("");
   const [contactedId, setContactedId] = useState<string | null>(null); 
+
+  const [contactTarget, setContactTarget] = useState<ForestListing | null>(null);
+
+  const handleContactSuccess = () => {
+    if (contactTarget) setContactedId(contactTarget.id);
+  };
 
   const filterChips = [
     { id: "all", label: tr("filter_all") },
@@ -59,68 +66,83 @@ export function ForagerMarket() {
 });
 
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif" }} className="min-h-screen bg-background">
-      <div className="bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-5">
-            <div>
-              <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500 }} className="text-foreground text-3xl mb-1">
-                {tr("market_title")}
-              </h1>
-              <p className="text-muted-foreground text-sm">
-                {filtered.length} {tr("market_subtitle_prefix")} · {tr("market_subtitle_suffix")}
-              </p>
-            </div>
-            <div className="relative md:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={tr("market_search")}
-                className="w-full pl-9 pr-4 py-2.5 bg-input-background rounded-xl border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-ring/30"
-                style={{ fontFamily: "'Inter', sans-serif" }}
-              />
+    <>
+      <div style={{ fontFamily: "'Inter', sans-serif" }} className="min-h-screen bg-background">
+        <div className="bg-card border-b border-border">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-5">
+              <div>
+                <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500 }} className="text-foreground text-3xl mb-1">
+                  {tr("market_title")}
+                </h1>
+                <p className="text-muted-foreground text-sm">
+                  {filtered.length} {tr("market_subtitle_prefix")} · {tr("market_subtitle_suffix")}
+                </p>
+              </div>
+              <div className="relative md:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={tr("market_search")}
+                  className="w-full pl-9 pr-4 py-2.5 bg-input-background rounded-xl border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-ring/30"
+                  style={{ fontFamily: "'Inter', sans-serif" }}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex items-center gap-2 mb-8 flex-wrap">
-          {filterChips.map((chip) => (
-            <button
-              key={chip.id}
-              onClick={() => setActiveFilter(chip.id)}
-              className={`px-3.5 py-1.5 rounded-full text-sm transition-all border ${
-                activeFilter === chip.id
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
-              }`}
-            >
-              {chip.label}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center gap-2 mb-8 flex-wrap">
+            {filterChips.map((chip) => (
+              <button
+                key={chip.id}
+                onClick={() => setActiveFilter(chip.id)}
+                className={`px-3.5 py-1.5 rounded-full text-sm transition-all border ${
+                  activeFilter === chip.id
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
+            <button className="ml-auto flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground text-sm transition-colors">
+              <Filter className="w-3.5 h-3.5" />
+              {tr("label_more_filters")}
             </button>
-          ))}
-          <button className="ml-auto flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground text-sm transition-colors">
-            <Filter className="w-3.5 h-3.5" />
-            {tr("label_more_filters")}
-          </button>
-        </div>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((listing) => (
-            <ForageCard
-              key={listing.id}
-              listing={listing}
-              lang={lang}
-              tr={tr}
-              contacted={contactedId === listing.id}
-              onContact={() => setContactedId(listing.id)}
-            />
-          ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filtered.map((listing) => (
+              <ForageCard
+                key={listing.id}
+                listing={listing}
+                lang={lang}
+                tr={tr}
+                contacted={contactedId === listing.id}
+                onContact={() => setContactTarget(listing)} 
+              />                
+              
+            ))}
+          </div>
         </div>
+        
+        <ContactFormModal
+          open={contactTarget !== null}
+          onClose={() => setContactTarget(null)}
+          recipientName={contactTarget?.seller_name}
+          listingTitle={contactTarget?.product_name}
+          listingId={contactTarget?.id}
+          listingType="forest"
+          sellerId={contactTarget?.seller_id} 
+          
+          onSuccess={handleContactSuccess}
+        />
       </div>
-    </div>
+    </>
   );
 }
 

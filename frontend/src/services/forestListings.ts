@@ -16,6 +16,7 @@ export interface ForestListing {
   delivery_available: boolean
   city: string
   region: string
+  seller_id: string
   seller_name: string
   seller_avatar: string | null
   seller_rating: number | null

@@ -163,6 +163,7 @@ interface SupabaseFarmListing {
   farm_region: string
   farm_rating: number | null
   farm_review_count: number
+  owner_id: string
   owner_name: string
 
   booking_required: boolean;   
@@ -326,6 +327,7 @@ function mapToFarm(
     description_fi: row.description ?? '',
     description_en: row.description ?? '',
     hostName: row.owner_name,
+    hostId: row.owner_id,
     hostInitials: row.owner_name.split(' ').map((n: string) => n[0]).join('').toUpperCase(),
     hostMemberSince_fi: '',
     hostMemberSince_en: '',
