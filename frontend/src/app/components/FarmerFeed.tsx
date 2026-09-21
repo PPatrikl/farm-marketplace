@@ -14,7 +14,6 @@ export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
   const [activeSortIndex, setActiveSortIndex] = useState(0);
   const [showSort, setShowSort] = useState(false);
 
-  // ── NEW: Supabase state ──────────────────────────────────
   const [farms, setFarms] = useState<Farm[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +34,6 @@ export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
     }
     loadListings();
   }, []);
-  // ── END NEW ──────────────────────────────────────────────
 
   const filterChips = [
     { id: "all", label: tr("filter_all") },
@@ -124,7 +122,6 @@ export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
           </div>
         </div>
 
-        {/* ── NEW: loading / error / empty states ── */}
         {loading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {[1, 2, 3].map((n) => (
@@ -160,7 +157,6 @@ export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
             </p>
           </div>
         )}
-        {/* ── END NEW ── */}
 
         {!loading && !error && filtered.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -236,7 +232,7 @@ function FarmCard({
           <span>{location}</span>
         </div>
 
-        <p className="text-foreground text-sm mb-3">{produce}</p>
+        <p className="text-foreground text-sm mb-3">{farm.title ?? produce}</p>
 
         <div className="flex flex-wrap gap-1.5 mb-4">
           {tags.map((tag) => (
@@ -275,4 +271,3 @@ function FarmCard({
     </div>
   );
 }
-
