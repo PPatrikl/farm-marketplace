@@ -1,58 +1,28 @@
+// src/app/components/LandingPage.tsx
+
 import { Search, MapPin, Sprout, Briefcase, Trees, ArrowRight, Star, TrendingUp, Users } from "lucide-react";
-import { useState } from "react";
+
 import { useLang } from "../i18n/LanguageContext";
+import { useEffect, useState } from "react";
+import { getRecentActivity, type RecentActivityItem } from "../../services/recentActivity";
+import { fetchFarmListingById } from "../../services/farmListings";
+import type { FarmWithVerification } from "../../services/farmListings";
+
+import { getLandingStats, getCategoryCounts, type LandingStats, type CategoryCounts } from "../../services/stats";
+import { searchListings, type SearchResult } from "../../services/search";
+
+const CATEGORY_LABEL_KEY = {
+  picking: "landing_map_legend_farm",   // "Tila"
+  job: "landing_map_legend_job",        // "Työ"
+  forest: "landing_map_legend_forage",  // "Keruu"
+} as const;
 
 interface LandingPageProps {
   onNavigate: (page: string) => void;
   onOpenAuth: (tab: "login" | "register") => void;
+  onSelectFarmListing: (farm: FarmWithVerification) => void; 
+  isLoggedIn: boolean;
 }
-
-const recentActivity = [
-  {
-    id: 1,
-    title_fi: "Mansikanpoiminta avoinna",
-    title_en: "Strawberry picking open",
-    farm: "Virtanen Tila",
-    location: "Hämeenlinna",
-    distance: "12 km",
-    time_fi: "2t sitten",
-    time_en: "2h ago",
-    color: "#B8293A",
-  },
-  {
-    id: 2,
-    title_fi: "Kanttarellit — 4 kg",
-    title_en: "Chanterelles — 4 kg",
-    farm: "Paavo Mäkinen",
-    location: "Tampere",
-    distance: "5 km",
-    time_fi: "4t sitten",
-    time_en: "4h ago",
-    color: "#D4A853",
-  },
-  {
-    id: 3,
-    title_fi: "Satotyöläisiä etsitään",
-    title_en: "Harvest workers needed",
-    farm: "Korhonen Farm",
-    location: "Turku",
-    distance: "89 km",
-    time_fi: "6t sitten",
-    time_en: "6h ago",
-    color: "#2A5012",
-  },
-  {
-    id: 4,
-    title_fi: "Luonnonmustikkaa — 8 L",
-    title_en: "Wild blueberries — 8 L",
-    farm: "Riikka Leinonen",
-    location: "Jyväskylä",
-    distance: "142 km",
-    time_fi: "8t sitten",
-    time_en: "8h ago",
-    color: "#3B5EA6",
-  },
-];
 
 const mapMarkers = [
   { id: 1, x: 28, y: 35, type: "farm", label_fi: "Virtanen Tila", label_en: "Virtanen Tila" },
@@ -64,16 +34,61 @@ const mapMarkers = [
   { id: 7, x: 35, y: 78, type: "job", label_fi: "Vadelmanpoiminta", label_en: "Raspberry picking" },
 ];
 
-export function LandingPage({ onNavigate, onOpenAuth }: LandingPageProps) {
+export function LandingPage({ onNavigate, onOpenAuth, onSelectFarmListing, isLoggedIn }: LandingPageProps) {
   const { tr, lang } = useLang();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocus, setSearchFocus] = useState(false);
+  
+  const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
+  const [loadingActivity, setLoadingActivity] = useState(true);
+  const [openingListingId, setOpeningListingId] = useState<string | null>(null);
+
+  async function openListing(item: { id: string; kind: "farm" | "forest" }) {
+    if (item.kind === "forest") {
+      // Temporary: There is no detail page for Forest listings yet
+      onNavigate("foragers");
+      return;
+    }
+
+    setOpeningListingId(item.id);
+    try {
+      const farm = await fetchFarmListingById(item.id);
+      if (farm) {
+        onSelectFarmListing(farm);
+      } else {
+        console.error("Listing not found or no longer active:", item.id);
+      }
+    } catch (err) {
+      console.error("Failed to load listing", err);
+    } finally {
+      setOpeningListingId(null);
+    }
+  }
+
+  const [landingStats, setLandingStats] = useState<LandingStats | null>(null);
+  const [categoryCounts, setCategoryCounts] = useState<CategoryCounts | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getLandingStats(), getCategoryCounts()])
+      .then(([s, c]) => { if (!cancelled) { setLandingStats(s); setCategoryCounts(c); } })
+      .catch((err) => console.error("Failed to load landing stats", err));
+    return () => { cancelled = true; };
+  }, []);
 
   const stats = [
-    { labelKey: "landing_badge_farms" as const, value: "284", icon: Sprout },
-    { labelKey: "landing_badge_pickers" as const, value: "1 840", icon: Users },
-    { labelKey: "landing_badge_listings" as const, value: "93", icon: TrendingUp },
+    { labelKey: "landing_badge_farms" as const, value: landingStats ? String(landingStats.activeFarms) : "—", icon: Sprout },
+    { labelKey: "landing_badge_pickers" as const, value: landingStats ? landingStats.registeredPickers.toLocaleString('fi-FI') : "—", icon: Users },
+    { labelKey: "landing_badge_listings" as const, value: landingStats ? String(landingStats.listingsThisWeek) : "—", icon: TrendingUp },
   ];
+
+  const weekCount = landingStats?.listingsThisWeek;
+  const badgeText =
+    weekCount === undefined
+      ? "\u00A0" // While it loads, we maintain the height so the header doesn't jump
+      : weekCount === 1
+        ? tr("landing_badge_one")
+        : tr("landing_badge").replace("{count}", String(weekCount));
 
   const categories = [
     {
@@ -81,7 +96,8 @@ export function LandingPage({ onNavigate, onOpenAuth }: LandingPageProps) {
       icon: Sprout,
       titleKey: "landing_cat_picking_title" as const,
       subtitleKey: "landing_cat_picking_sub" as const,
-      countKey: "landing_cat_picking_count" as const,
+      countSuffixKey: "landing_cat_picking_count_suffix" as const,
+      count: categoryCounts?.pickingCount ?? null,
       color: "#2A5012",
       bg: "#EDF4E8",
     },
@@ -90,7 +106,8 @@ export function LandingPage({ onNavigate, onOpenAuth }: LandingPageProps) {
       icon: Briefcase,
       titleKey: "landing_cat_jobs_title" as const,
       subtitleKey: "landing_cat_jobs_sub" as const,
-      countKey: "landing_cat_jobs_count" as const,
+      countSuffixKey: "landing_cat_jobs_count_suffix" as const,
+      count: categoryCounts?.jobsCount ?? null,
       color: "#B8293A",
       bg: "#FAEAEC",
     },
@@ -99,17 +116,62 @@ export function LandingPage({ onNavigate, onOpenAuth }: LandingPageProps) {
       icon: Trees,
       titleKey: "landing_cat_forest_title" as const,
       subtitleKey: "landing_cat_forest_sub" as const,
-      countKey: "landing_cat_forest_count" as const,
+      countSuffixKey: "landing_cat_forest_count_suffix" as const,
+      count: categoryCounts?.forestCount ?? null,
       color: "#4A7C2F",
       bg: "#EEF4E9",
     },
   ];
 
+  useEffect(() => {
+    let cancelled = false;
+    getRecentActivity(4)
+      .then((data) => { if (!cancelled) setRecentActivity(data); })
+      .catch((err) => console.error("Failed to load recent activity", err))
+      .finally(() => { if (!cancelled) setLoadingActivity(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSearchLoading(true);
+    const timer = setTimeout(() => {
+      searchListings(q)
+        .then((r) => { if (!cancelled) setSearchResults(r); })
+        .catch((err) => console.error("Search failed", err))
+        .finally(() => { if (!cancelled) setSearchLoading(false); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [searchQuery]);
+
+  function handlePostListing() {
+    if (isLoggedIn) {
+      onNavigate("profile");
+    } else {
+      onOpenAuth("register");
+    }
+  }
+
+  const TRUST_STEP = 100;
+
+  const usersRounded = landingStats
+    ? Math.floor(landingStats.registeredPickers / TRUST_STEP) * TRUST_STEP
+    : 0;
+
   return (
     <div style={{ fontFamily: "'Inter', sans-serif" }} className="min-h-screen bg-background">
       {/* Hero */}
-      <section
-        className="relative overflow-hidden"
+      <section className="relative"
         style={{ background: "linear-gradient(160deg, #2A5012 0%, #3D6B1C 50%, #4A7C2F 100%)" }}
       >
         <div
@@ -122,20 +184,22 @@ export function LandingPage({ onNavigate, onOpenAuth }: LandingPageProps) {
         />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-28">
           <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 rounded-full px-3.5 py-1.5 mb-6">
-              <span className="w-2 h-2 rounded-full bg-green-300 animate-pulse" />
-              <span className="text-white/90 text-sm">{tr("landing_badge")}</span>
-            </div>
+              {weekCount !== 0 && (
+                <div className={`inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 rounded-full px-3.5 py-1.5 mb-6 ${weekCount === undefined ? "invisible" : ""}`}>
+                  <span className="w-2 h-2 rounded-full bg-green-300 animate-pulse" />
+                  <span className="text-white/90 text-sm">{badgeText}</span>
+                </div>
+              )}
             <h1
               style={{ fontFamily: "'Fraunces', serif", fontWeight: 500, lineHeight: 1.15, fontSize: "clamp(2rem, 5vw, 3.25rem)" }}
               className="text-white mb-5"
             >
               {tr("landing_hero_title")}
             </h1>
-            <p className="text-white/75 text-lg mb-10 leading-relaxed max-w-lg">
-              {tr("landing_hero_sub")}
-            </p>
-
+              <p className="text-white/75 text-lg mb-10 leading-relaxed max-w-lg">
+                {tr("landing_hero_sub")}
+              </p>
+            
             {/* Search bar */}
             <div className="relative">
               <div
@@ -147,9 +211,13 @@ export function LandingPage({ onNavigate, onOpenAuth }: LandingPageProps) {
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={() => setSearchFocus(true)}
-                  onBlur={() => setSearchFocus(false)}
+                  onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+                  onFocus={() => { setSearchFocus(true); setSearchOpen(true); }}
+                  onBlur={() => { setSearchFocus(false); setSearchOpen(false); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setSearchOpen(false);
+                    if (e.key === "Enter") setSearchOpen(true);
+                  }}
                   placeholder={tr("landing_search_placeholder")}
                   className="flex-1 px-4 py-4 text-foreground placeholder:text-muted-foreground bg-transparent outline-none text-base"
                   style={{ fontFamily: "'Inter', sans-serif" }}
@@ -159,12 +227,53 @@ export function LandingPage({ onNavigate, onOpenAuth }: LandingPageProps) {
                     <MapPin className="w-4 h-4" />
                     <span>{tr("landing_location")}</span>
                   </button>
-                  <button className="px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                  <button
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setSearchOpen(true)}
+                    className="px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                  >
                     {tr("landing_search_btn")}
                   </button>
                 </div>
               </div>
+
+              {searchOpen && searchQuery.trim().length >= 2 && (
+                <div
+                  onMouseDown={(e) => e.preventDefault()} 
+                  className="absolute left-0 right-0 top-full mt-2 bg-card rounded-xl border border-border shadow-2xl z-30 max-h-96 overflow-y-auto divide-y divide-border"
+                >
+                  {searchLoading && searchResults.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                      {tr("landing_recent_loading")}
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                      {tr("landing_search_empty")}
+                    </div>
+                  ) : (
+                    searchResults.map((r) => (
+                      <div
+                        key={`${r.kind}-${r.id}`}
+                        onClick={() => { setSearchOpen(false); openListing(r); }}
+                        className="px-4 py-3 hover:bg-secondary/40 transition-colors cursor-pointer flex items-center gap-3"
+                      >
+                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: r.color }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-foreground text-sm font-medium truncate">{r.title}</p>
+                          <p className="text-muted-foreground text-xs truncate">
+                            {[r.subtitle, r.city].filter(Boolean).join(" · ")}
+                          </p>
+                        </div>
+                        <span className="text-xs text-muted-foreground flex-shrink-0">
+                          {tr(CATEGORY_LABEL_KEY[r.category])}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
+
           </div>
         </div>
 
@@ -231,11 +340,8 @@ export function LandingPage({ onNavigate, onOpenAuth }: LandingPageProps) {
                 </h3>
                 <p className="text-muted-foreground text-sm mb-4 leading-relaxed">{tr(cat.subtitleKey)}</p>
                 <div className="flex items-center justify-between">
-                  <span
-                    className="text-xs font-medium px-2.5 py-1 rounded-full"
-                    style={{ background: cat.bg, color: cat.color }}
-                  >
-                    {tr(cat.countKey)}
+                  <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: cat.bg, color: cat.color }}>
+                    {cat.count === null ? "…" : `${cat.count} ${tr(cat.countSuffixKey)}`}
                   </span>
                   <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                 </div>
@@ -319,40 +425,53 @@ export function LandingPage({ onNavigate, onOpenAuth }: LandingPageProps) {
                 {tr("landing_recent_title")}
               </h3>
             </div>
-            <div className="divide-y divide-border">
-              {recentActivity.map((item) => (
-                <div key={item.id} className="px-5 py-4 hover:bg-secondary/40 transition-colors cursor-pointer">
+          <div className="divide-y divide-border">
+            {loadingActivity ? (
+              <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+                {tr("landing_recent_loading") /*  "Loading..." */}
+              </div>
+            ) : recentActivity.length === 0 ? (
+              <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+                {tr("landing_recent_empty") /*  "No listings yet" */}
+              </div>
+            ) : (
+              recentActivity.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => openListing(item)}
+                  className={`px-5 py-4 hover:bg-secondary/40 transition-colors cursor-pointer ${
+                    openingListingId === item.id ? "opacity-60 pointer-events-none" : ""
+                  }`}
+                >
                   <div className="flex items-start gap-3">
                     <div className="w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: item.color }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-foreground text-sm font-medium truncate">
-                        {lang === "fi" ? item.title_fi : item.title_en}
-                      </p>
-                      <p className="text-muted-foreground text-xs mt-0.5">{item.farm}</p>
+                      <p className="text-foreground text-sm font-medium truncate">{item.title}</p>
+                      <p className="text-muted-foreground text-xs mt-0.5">{item.authorName}</p>
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <MapPin className="w-3 h-3" />
-                          {item.location}
+                          {item.city}
                         </span>
-                        <span className="text-muted-foreground text-xs">·</span>
-                        <span className="text-xs text-muted-foreground">{item.distance}</span>
                       </div>
                     </div>
                     <span className="text-xs text-muted-foreground flex-shrink-0">
-                      {lang === "fi" ? item.time_fi : item.time_en}
+                      {lang === "fi" ? item.timeAgoFi : item.timeAgoEn}
                     </span>
                   </div>
                 </div>
-              ))}
-            </div>
-            <div className="px-5 py-4">
-              <button
-                onClick={() => onNavigate("foragers")}
-                className="w-full text-center text-sm text-primary font-medium hover:underline"
-              >
-                {tr("landing_view_all")}
+              ))
+            )}
+          </div>
+            <div className="px-5 py-4 flex gap-4 justify-center text-sm">
+              <button onClick={() => onNavigate("farmers")} className="w-full text-primary text-sm font-medium hover:underline">
+                {tr("landing_view_farms")} 
+              </button>
+              <button onClick={() => onNavigate("foragers")} className="w-full text-primary text-sm font-medium hover:underline">
+                {tr("landing_view_forest")} 
               </button>
             </div>
+ 
           </div>
         </div>
       </section>
@@ -364,10 +483,14 @@ export function LandingPage({ onNavigate, onOpenAuth }: LandingPageProps) {
           style={{ background: "linear-gradient(135deg, #2A5012 0%, #4A7C2F 100%)" }}
         >
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Star className="w-4 h-4 text-yellow-300" fill="currentColor" />
-              <span className="text-white/80 text-sm">{tr("landing_cta_trusted")}</span>
-            </div>
+            {usersRounded >= TRUST_STEP && (
+              <div className="flex items-center gap-2 mb-3">
+                <Star className="w-4 h-4 text-yellow-300" fill="currentColor" />
+                <span className="text-white/80 text-sm">
+                  {tr("landing_cta_trusted").replace("{count}", usersRounded.toLocaleString("fi-FI"))}
+                </span>
+              </div>
+            )}
             <h2
               style={{ fontFamily: "'Fraunces', serif", fontWeight: 500, fontSize: "clamp(1.4rem, 3vw, 2rem)" }}
               className="text-white mb-2"
@@ -380,7 +503,7 @@ export function LandingPage({ onNavigate, onOpenAuth }: LandingPageProps) {
           </div>
           <div className="flex flex-col sm:flex-row gap-3 flex-shrink-0">
             <button
-              onClick={() => onOpenAuth("register")}
+              onClick={handlePostListing}
               className="px-6 py-3 bg-white text-primary rounded-xl text-sm font-medium hover:bg-white/90 transition-colors shadow-sm"
             >
               {tr("landing_cta_post")}

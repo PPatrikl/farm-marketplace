@@ -99,7 +99,14 @@ function AppInner() {
       }}
       />
       <main>
-        {page === "landing" && <LandingPage onNavigate={handleNavigate} onOpenAuth={openAuth} />}
+        {page === "landing" && (
+          <LandingPage
+            onNavigate={handleNavigate}
+            onOpenAuth={openAuth}
+            onSelectFarmListing={handleSelectFarm}
+            isLoggedIn={!!user}
+          />
+        )}
         {page === "farmers" && <FarmerFeed onSelectFarm={handleSelectFarm} />}
         {page === "foragers" && <ForagerMarket />}
         {page === "profile" && <UserProfile />}

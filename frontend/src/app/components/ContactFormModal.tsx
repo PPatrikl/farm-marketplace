@@ -369,7 +369,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </p>
               )}
             </div>
-            {/* добавили */}
+            
             <input
                 type="text"
                 name="website"
