@@ -1,8 +1,12 @@
  //  utils/dates.ts
  
 export function isoToDate(iso: string): Date {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d);
+  const match = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(iso);
+  if (match) {
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+
+  return new Date(iso);
 }
 
 export function sameDay(a: Date, b: Date): boolean {
@@ -11,7 +15,9 @@ export function sameDay(a: Date, b: Date): boolean {
 
 // "20.6." style short date, or "15.7.2025" when withYear is true
 export function formatShortDate(iso: string, withYear: boolean = false): string {
+  if (!iso) return "";
   const d = isoToDate(iso);
+  if (Number.isNaN(d.getTime())) return "";
   const base = `${d.getDate()}.${d.getMonth() + 1}.`;
   return withYear ? `${base}${d.getFullYear()}` : base;
 }

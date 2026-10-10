@@ -320,7 +320,7 @@ function mapToFarm(
     image: heroImage,
     galleryImages,
     distance: '— km',
-    openSpots: row.spots_remaining ?? 0,
+    openSpots: isPicking ? row.spots_total ?? row.spots_remaining ?? 0 : row.spots_remaining ?? 0,
     tags_fi,
     tags_en,
     description_fi: row.description ?? '',

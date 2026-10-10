@@ -16,6 +16,7 @@ export interface FarmListingManagerHandle {
   startEdit: (listing: any) => void;
   deleteListing: (listing: any) => Promise<void>;
   changeStatus: (listing: any, next: "active" | "closed" | "draft") => Promise<void>;
+  refreshListings: () => Promise<void>;
   resetForms: () => void;
   setView: (view: "farm" | "listing") => void;
 }
@@ -239,6 +240,7 @@ export const FarmListingManager = forwardRef<FarmListingManagerHandle, FarmListi
         await setFarmListingStatus(listing.id, next);
         await refreshListings();
       },
+      refreshListings,
       resetForms,
       setView(view) {
         setFarmerView(view);

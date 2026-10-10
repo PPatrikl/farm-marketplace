@@ -16,15 +16,19 @@ type Page = "landing" | "farmers" | "foragers" | "profile" | "detail";
 function AppInner() {
   {/* MARKER-MAKE-KIT-INVOKED */}
   const [page, setPage] = useState<Page>("landing");
+  const [profileSection, setProfileSection] = useState<string | null>(null);
+  const [profileFocusRequest, setProfileFocusRequest] = useState(0);
   //const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
   const [selectedFarm, setSelectedFarm] = useState<FarmWithVerification | null>(null);
 
   const [user, setUser] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
     useEffect(() => {
       // Check if user is already logged in on page load
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
           setUser(session.user.user_metadata?.full_name || session.user.email || null);
+          setUserId(session.user.id);
         }
       });
 
@@ -32,8 +36,10 @@ function AppInner() {
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         if (session?.user) {
           setUser(session.user.user_metadata?.full_name || session.user.email || null);
+          setUserId(session.user.id);
         } else {
           setUser(null);
+          setUserId(null);
         }
       });
 
@@ -43,7 +49,7 @@ function AppInner() {
   const [authOpen, setAuthOpen] = useState(false);
   const [authTab, setAuthTab] = useState<"login" | "register">("register");
 
-  const handleNavigate = (target: string) => {
+  const handleNavigate = (target: string, section?: string) => {
     // Protect profile page — redirect to login if not authenticated
     if (target === "profile" && !user) {
       openAuth("login");
@@ -51,6 +57,8 @@ function AppInner() {
     }
     if (["landing", "farmers", "foragers", "profile"].includes(target)) {
       setPage(target as Page);
+      setProfileSection(target === "profile" ? section ?? null : null);
+      if (target === "profile" && section) setProfileFocusRequest((request) => request + 1);
       setSelectedFarm(null);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -90,11 +98,13 @@ function AppInner() {
         activePage={page === "detail" ? "farmers" : page}
         onNavigate={handleNavigate}
         user={user}
+        userId={userId}
         onOpenAuth={openAuth}
         // Handle logout by signing out from Supabase and clearing the user state
         onLogout={async () => {
         await supabase.auth.signOut();
         setUser(null);
+        setUserId(null);
         setPage("landing");
       }}
       />
@@ -102,7 +112,7 @@ function AppInner() {
         {page === "landing" && <LandingPage onNavigate={handleNavigate} onOpenAuth={openAuth} />}
         {page === "farmers" && <FarmerFeed onSelectFarm={handleSelectFarm} />}
         {page === "foragers" && <ForagerMarket />}
-        {page === "profile" && <UserProfile />}
+        {page === "profile" && <UserProfile focusSection={profileSection} focusRequest={profileFocusRequest} />}
         {page === "detail" && selectedFarm && (
           <ListingDetail farm={selectedFarm} onBack={handleBackFromDetail} />
         )}
@@ -114,6 +124,7 @@ function AppInner() {
         // Redirect to Oma tili after login
         onSuccess={(name) => {
         setUser(name || "");
+        supabase.auth.getUser().then(({ data: { user: authUser } }) => setUserId(authUser?.id ?? null));
         setPage("profile");
         }}
         initialTab={authTab}

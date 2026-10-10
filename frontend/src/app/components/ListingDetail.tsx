@@ -32,8 +32,14 @@ function getSeasonWindow(seasonStart: string, seasonEnd: string, today: Date = n
 }
 
 // ─── Mini Calendar ───────────────────────────────────────────────────────────
-function MiniCalendar({ seasonStart, seasonEnd, selected, onSelect }: {
-  seasonStart: string; seasonEnd: string; selected: Date | null; onSelect: (d: Date) => void;
+function MiniCalendar({ seasonStart, seasonEnd, selected, onSelect, capacity, bookedByDate, availabilityLoaded }: {
+  seasonStart: string;
+  seasonEnd: string;
+  selected: Date | null;
+  onSelect: (d: Date) => void;
+  capacity: number | null;
+  bookedByDate: Record<string, number>;
+  availabilityLoaded: boolean;
 }) {
   const { tr, lang } = useLang();
   const months = tr("cal_mo") as unknown as string[];
@@ -84,7 +90,9 @@ function MiniCalendar({ seasonStart, seasonEnd, selected, onSelect }: {
           const inSeason = date >= start && date <= end;
           const isSelected = selected ? sameDay(date, selected) : false;
           const isToday = sameDay(date, today);
-          const disabled = isPast || !inSeason;
+          const dateKey = formatIsoDate(date);
+          const isFull = capacity !== null && (bookedByDate[dateKey] || 0) >= capacity;
+          const disabled = isPast || !inSeason || !availabilityLoaded || isFull;
 
           return (
             <button
@@ -92,10 +100,11 @@ function MiniCalendar({ seasonStart, seasonEnd, selected, onSelect }: {
               onClick={() => !disabled && onSelect(date)}
               disabled={disabled}
               className={`relative h-8 w-full rounded-lg text-xs transition-all flex items-center justify-center
-                ${disabled ? "opacity-30 cursor-not-allowed text-muted-foreground" : "cursor-pointer"}
-                ${isSelected ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                ${isFull ? "bg-muted text-muted-foreground opacity-70 cursor-not-allowed line-through" : ""}
+                ${disabled && !isFull ? "opacity-30 cursor-not-allowed text-muted-foreground" : ""}
+                ${isSelected && !isFull ? "bg-primary text-primary-foreground font-semibold shadow-sm"
                   : !disabled ? "hover:bg-secondary text-foreground" : "text-muted-foreground"}
-                ${isToday && !isSelected ? "ring-1 ring-primary/40 font-medium" : ""}
+                ${isToday && (!isSelected || isFull) ? "ring-1 ring-primary/40 font-medium" : ""}
                 ${inSeason && !disabled && !isSelected ? "font-medium" : ""}`}
             >
               {date.getDate()}
@@ -110,6 +119,7 @@ function MiniCalendar({ seasonStart, seasonEnd, selected, onSelect }: {
       <div className="flex items-center gap-3 mt-3 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary/40 inline-block" />{lang === "fi" ? "Poiminta-ajan sisällä" : "In season"}</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary inline-block" />{lang === "fi" ? "Valittu" : "Selected"}</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-muted border border-border inline-block" />{lang === "fi" ? "Täynnä" : "Full"}</span>
       </div>
     </div>
   );
@@ -361,6 +371,10 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
   const [bookingNotes, setBookingNotes] = useState("");
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [bookingFeedback, setBookingFeedback] = useState<string | null>(null);
+  const [bookedByDate, setBookedByDate] = useState<Record<string, number>>({});
+  const [dateCapacity, setDateCapacity] = useState<number | null>(farm.spotsTotal);
+  const [availabilityLoaded, setAvailabilityLoaded] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
   const isPicking = farm.type === "picking";
   const location = lang === "fi" ? farm.location_fi : farm.location_en;
@@ -378,13 +392,67 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
   const allImages = [farm.image, ...farm.galleryImages];
   const isBookable = farm.listingStatus === "active";
 
+  useEffect(() => {
+    if (!isPicking || !farm.id) return;
+    let active = true;
+    setDateCapacity(farm.spotsTotal);
+    setAvailabilityLoaded(false);
+    const refreshAvailability = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_URL || "";
+        const response = await fetch(`${apiBase}/api/bookings/availability?listing_id=${encodeURIComponent(farm.id)}`);
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Availability could not be loaded");
+        if (result.capacity !== null && (!Number.isInteger(result.capacity) || result.capacity < 0)) {
+          throw new Error("Invalid listing capacity");
+        }
+        if (!active) return;
+        setBookedByDate(result.bookedByDate ?? {});
+        setDateCapacity(result.capacity);
+        setAvailabilityError(null);
+        setAvailabilityLoaded(true);
+      } catch (error) {
+        if (!active) return;
+        const detail = error instanceof Error ? error.message : "Availability could not be loaded";
+        setAvailabilityError(lang === "fi"
+          ? `Päivien paikkatilannetta ei voitu ladata: ${detail}`
+          : `Daily availability could not be loaded: ${detail}`);
+        setAvailabilityLoaded(false);
+      }
+    };
+    void refreshAvailability();
+    const interval = window.setInterval(() => { void refreshAvailability(); }, 30000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [farm.id, isPicking, lang]);
+
+  const selectedDateKey = selectedDate ? formatIsoDate(selectedDate) : null;
+  const selectedDateAvailability = dateCapacity === null
+    ? null
+    : selectedDateKey
+      ? Math.max(0, dateCapacity - (bookedByDate[selectedDateKey] || 0))
+      : dateCapacity;
+
   const handleBookingSubmit = async () => {
     if (!selectedDate) return;
     const name = bookingName.trim();
     const email = bookingEmail.trim();
+    const partySize = Number(bookingGuests);
 
     if (!name || !email) {
       setBookingFeedback(lang === "fi" ? "Anna nimi ja sähköposti." : "Please provide your name and email.");
+      return;
+    }
+    if (!Number.isInteger(partySize) || partySize < 1) {
+      setBookingFeedback(lang === "fi" ? "Anna vähintään yksi poimija." : "Enter at least one picker.");
+      return;
+    }
+    if (selectedDateAvailability !== null && partySize > selectedDateAvailability) {
+      setBookingFeedback(lang === "fi"
+        ? `Valitulle päivälle on jäljellä ${selectedDateAvailability} paikkaa.`
+        : `${selectedDateAvailability} places remain on the selected date.`);
       return;
     }
 
@@ -401,18 +469,24 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
     }
 
     try {
-      const { error } = await supabase.from("bookings").insert([{
-        listing_id: listingId,
-        booker_id: user.id,
-        status: "pending" as const,
-        booking_date: formatIsoDate(selectedDate),
-        party_size: Number(bookingGuests) || 1,
-        message: `${name}\n${email}\n${bookingNotes.trim()}`.trim() || null,
-      }]).select("id").single();
+      const apiBase = import.meta.env.VITE_API_URL || "";
+      const response = await fetch(`${apiBase}/api/bookings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listing_id: listingId,
+          booker_id: user.id,
+          booking_date: formatIsoDate(selectedDate),
+          party_size: partySize,
+          message: `${name}\n${email}\n${bookingNotes.trim()}`.trim() || null,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Booking request failed");
 
-      if (error) throw new Error(error.message || "Booking request failed");
-
-      setBookingFeedback(lang === "fi" ? "Varaus lähetetty onnistuneesti!" : "Booking submitted successfully!");
+      setBookingFeedback(lang === "fi"
+        ? "Varauspyyntö lähetetty. Se vahvistuu, kun farmer hyväksyy sen."
+        : "Booking request sent. It will be confirmed after the farmer accepts it.");
       setBookingOpen(false);
       setBookingName(""); setBookingEmail(""); setBookingGuests("1"); setBookingNotes("");
     } catch (error) {
@@ -473,7 +547,8 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
     };
 
     try {
-      const response = await fetch("http://localhost:3001/api/applications", {
+      const apiBase = import.meta.env.VITE_API_URL || "";
+      const response = await fetch(`${apiBase}/api/applications`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -680,7 +755,18 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
 
                     <div>
                       <p className="text-xs font-medium text-foreground mb-3">{tr("det_select_date")}</p>
-                      <MiniCalendar seasonStart={farm.seasonStart} seasonEnd={farm.seasonEnd} selected={selectedDate} onSelect={setSelectedDate} />
+                      <MiniCalendar
+                        seasonStart={farm.seasonStart}
+                        seasonEnd={farm.seasonEnd}
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        capacity={dateCapacity}
+                        bookedByDate={bookedByDate}
+                        availabilityLoaded={availabilityLoaded}
+                      />
+                      {availabilityError && (
+                        <p role="alert" className="mt-2 text-[11px] text-destructive">{availabilityError}</p>
+                      )}
                     </div>
 
                     {selectedDate ? (
@@ -700,11 +786,14 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
 
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground text-xs">{tr("det_spots_label")}</span>
-                      <span className="font-medium text-primary text-xs">{farm.openSpots}</span>
+                      <span className="font-medium text-primary text-xs">
+                        {selectedDateAvailability ?? (lang === "fi" ? "Rajoittamaton" : "Unlimited")}
+                      </span>
                     </div>
 
                     <button
-                      disabled={!selectedDate || !isBookable}
+                      disabled={!selectedDate || !isBookable || !availabilityLoaded
+                        || (selectedDateAvailability !== null && selectedDateAvailability < 1)}
                       onClick={() => { setBookingFeedback(null); setBookingOpen(true); }}
                       className="w-full py-3.5 rounded-xl font-medium text-sm transition-all bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
@@ -725,7 +814,14 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
 
                         <BookingField label={tr("det_booking_name")} value={bookingName} onChange={setBookingName} placeholder={lang === "fi" ? "Etunimi Sukunimi" : "Full name"} />
                         <BookingField label={tr("det_booking_email")} value={bookingEmail} onChange={setBookingEmail} type="email" placeholder="name@example.com" />
-                        <BookingField label={tr("det_booking_guests")} value={bookingGuests} onChange={setBookingGuests} type="number" min="1" />
+                        <BookingField
+                          label={tr("det_booking_guests")}
+                          value={bookingGuests}
+                          onChange={setBookingGuests}
+                          type="number"
+                          min="1"
+                          max={selectedDateAvailability ?? undefined}
+                        />
                         <BookingTextArea label={tr("det_booking_notes")} value={bookingNotes} onChange={setBookingNotes}
                           placeholder={lang === "fi" ? "Lisätietoja, esim. allergiat tai erityistarpeet" : "Additional details, e.g. allergies or accessibility needs"} />
 
@@ -901,8 +997,8 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
 }
 
 // ─── booking field helpers ────────────────────────────────────────────────────
-function BookingField({ label, value, onChange, type = "text", placeholder, min }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string; min?: string;
+function BookingField({ label, value, onChange, type = "text", placeholder, min, max }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string; min?: string; max?: number;
 }) {
   return (
     <div className="space-y-2">
@@ -910,6 +1006,7 @@ function BookingField({ label, value, onChange, type = "text", placeholder, min 
       <input
         type={type}
         min={min}
+        max={max}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}

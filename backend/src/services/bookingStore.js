@@ -1,6 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 
+function readBookingsForNotifications(options = {}) {
+  const filePath = options.filePath || path.join(__dirname, '..', '..', 'data', 'bookings.json');
+  if (!fs.existsSync(filePath)) return [];
+  const raw = fs.readFileSync(filePath, 'utf8');
+  if (!raw.trim()) return [];
+  const parsed = JSON.parse(raw);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
 async function saveBooking(booking, options = {}) {
   const filePath = options.filePath || path.join(__dirname, '..', '..', 'data', 'bookings.json');
   const dir = path.dirname(filePath);
@@ -30,4 +39,5 @@ async function saveBooking(booking, options = {}) {
 
 module.exports = {
   saveBooking,
+  readBookingsForNotifications,
 };

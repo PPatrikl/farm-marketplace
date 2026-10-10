@@ -2,20 +2,34 @@ import { Leaf, Menu, X, Bell, User, LogOut, ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useLang } from "../i18n/LanguageContext";
 import type { Lang } from "../i18n/translations";
+import { formatShortDate } from "../../utils/dates";
 
 interface NavbarProps {
   activePage: string;
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, section?: string) => void;
   user: string | null;
+  userId: string | null;
   onOpenAuth: (tab: "login" | "register") => void;
   onLogout: () => void;
 }
 
-export function Navbar({ activePage, onNavigate, user, onOpenAuth, onLogout }: NavbarProps) {
+export function Navbar({ activePage, onNavigate, user, userId, onOpenAuth, onLogout }: NavbarProps) {
   const { lang, setLang, tr } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Array<{
+    id: string;
+    listing_title: string;
+    status: string;
+    rejection_reason: string | null;
+    kind: "application" | "application_status" | "booking" | "booking_status";
+    booking_date?: string;
+    unread: boolean;
+  }>>([]);
   const langRef = useRef<HTMLDivElement>(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const unreadCount = notifications.filter((notification) => notification.unread).length;
 
   const navLinks = [
     { id: "landing", label: tr("nav_home") },
@@ -38,6 +52,84 @@ export function Navbar({ activePage, onNavigate, user, onOpenAuth, onLogout }: N
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      setNotifications([]);
+      setNotificationsOpen(false);
+      return;
+    }
+
+    let cancelled = false;
+    const loadNotifications = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_URL || "";
+        const response = await fetch(`${apiBase}/api/applications/notifications?user_id=${encodeURIComponent(userId)}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) throw new Error(`Failed to load notifications: ${response.status}`);
+        const payload = await response.json();
+        if (!cancelled && !notificationsOpen) {
+          setNotifications(Array.isArray(payload.notifications) ? payload.notifications : []);
+        }
+      } catch (error) {
+        console.error("Failed to load notifications:", error);
+      }
+    };
+
+    loadNotifications();
+    const interval = window.setInterval(loadNotifications, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [userId, notificationsOpen]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (notificationRef.current && !notificationRef.current.contains(e.target as Node)) {
+        setNotificationsOpen(false);
+        setNotifications([]);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  async function openNotifications() {
+    const opening = !notificationsOpen;
+    setNotificationsOpen(opening);
+    if (!opening) {
+      setNotifications([]);
+      return;
+    }
+    if (!userId) return;
+
+    const unread = notifications.filter((notification) => notification.unread);
+    if (unread.length === 0) return;
+
+    const apiBase = import.meta.env.VITE_API_URL || "";
+    try {
+      const results = await Promise.all(unread.map(async (notification) => {
+        const isBooking = notification.kind === "booking" || notification.kind === "booking_status";
+        const response = await fetch(`${apiBase}/api/${isBooking ? "bookings" : "applications"}/notifications/read`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            [isBooking ? "booking_id" : "application_id"]: notification.id,
+            user_id: userId,
+          }),
+        });
+        if (!response.ok) throw new Error(`Failed to mark notification as read: ${response.status}`);
+        return notification.id;
+      }));
+      setNotifications((current) => current.map((notification) =>
+        results.includes(notification.id) ? { ...notification, unread: false } : notification
+      ));
+    } catch (error) {
+      console.error("Failed to mark notifications as read:", error);
+    }
+  }
 
   return (
     <header
@@ -120,10 +212,70 @@ export function Navbar({ activePage, onNavigate, user, onOpenAuth, onLogout }: N
 
             {user ? (
               <>
-                <button className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-                  <Bell className="w-5 h-5" />
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />
-                </button>
+                <div ref={notificationRef} className="relative">
+                  <button
+                    onClick={openNotifications}
+                    aria-label={lang === "fi" ? "Ilmoitukset" : "Notifications"}
+                    aria-expanded={notificationsOpen}
+                    className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                  >
+                    <Bell className="w-5 h-5" />
+                    {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />}
+                  </button>
+                  {notificationsOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-80 max-w-[90vw] rounded-xl border border-border bg-card shadow-xl z-50 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-border font-medium text-sm text-foreground">
+                        {lang === "fi" ? "Ilmoitukset" : "Notifications"}
+                      </div>
+                      <div className="max-h-80 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <p className="px-4 py-5 text-sm text-muted-foreground">
+                            {lang === "fi" ? "Ei ilmoituksia." : "No notifications."}
+                          </p>
+                        ) : notifications.map((notification) => (
+                          <button
+                            key={notification.id}
+                            onClick={() => {
+                              setNotificationsOpen(false);
+                              setNotifications([]);
+                              onNavigate(
+                                "profile",
+                                notification.kind === "application" || notification.kind === "booking"
+                                  ? "open-applications"
+                                  : "accepted-results"
+                              );
+                            }}
+                            className="w-full text-left px-4 py-3 border-b border-border/70 hover:bg-secondary/60 transition-colors"
+                          >
+                            <span className="block text-sm font-medium text-foreground">
+                              {notification.kind === "application"
+                                ? (lang === "fi" ? "Uusi hakemus" : "New application")
+                                : notification.kind === "booking"
+                                  ? (lang === "fi" ? "Uusi itsepoimintavaraus" : "New picking request")
+                                  : notification.kind === "booking_status"
+                                    ? notification.status === "confirmed"
+                                      ? (lang === "fi" ? "Itsepoimintavarauksesi hyväksyttiin" : "Your picking request was confirmed")
+                                      : (lang === "fi" ? "Itsepoimintavarauksesi hylättiin" : "Your picking request was declined")
+                                    : notification.status === "accepted"
+                                      ? (lang === "fi" ? "Hakemuksesi hyväksyttiin" : "Your application was accepted")
+                                      : (lang === "fi" ? "Hakemuksesi hylättiin" : "Your application was declined")}
+                            </span>
+                            <span className="mt-1 block text-xs text-muted-foreground">{notification.listing_title}</span>
+                            {notification.booking_date && formatShortDate(notification.booking_date, true) && (
+                              <span className="mt-1 block text-xs text-muted-foreground">
+                                {formatShortDate(notification.booking_date, true)}
+                              </span>
+                            )}
+                            {notification.status === "rejected" && notification.rejection_reason && (
+                              <span className="mt-1 block text-xs text-muted-foreground line-clamp-2">{notification.rejection_reason}</span>
+                            )}
+                            {notification.unread && <span className="sr-only">{lang === "fi" ? "Lukematon" : "Unread"}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={() => onNavigate("profile")}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/70 transition-colors text-sm font-medium"

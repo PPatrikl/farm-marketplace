@@ -1,8 +1,8 @@
 //  UserProfile.tsx
 import {
-  MapPin, Camera, Plus, Star, Sprout, Trees, CheckCircle, Pencil, Trash2, X, Eye, Phone
+  MapPin, Camera, Plus, Star, Sprout, Trees, CheckCircle, Pencil, Trash2, X, Eye, Phone, ChevronDown, ChevronUp
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLang } from "../i18n/LanguageContext";
 import { supabase } from "../../supabaseClient";
 
@@ -72,6 +72,48 @@ const STATUS_LABELS: Record<string, { fi: string; en: string; bg: string; color:
   sold:     { fi: "Myyty",       en: "Sold",    bg: "#EAE7E0", color: "#6B6860" },
 };
 
+function CollapsibleSection({ id, title, count, children, lang, forceOpen = false, defaultOpen = true }: {
+  id: string;
+  title: string;
+  count?: number;
+  children: ReactNode;
+  lang: string;
+  forceOpen?: boolean;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const HeadingIcon = open ? ChevronUp : ChevronDown;
+  useEffect(() => {
+    if (forceOpen) setOpen(true);
+  }, [forceOpen]);
+  return (
+    <section id={id} data-profile-section={id} className="mb-6 scroll-mt-24 rounded-2xl border border-primary/20 bg-primary/5 p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500 }} className="text-foreground text-xl">
+          {title}
+        </h3>
+        <div className="flex items-center gap-2">
+          {count !== undefined && (
+            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">{count}</span>
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen((current) => !current)}
+            aria-expanded={open}
+            aria-label={open
+              ? (lang === "fi" ? "Pienennä osio" : "Collapse section")
+              : (lang === "fi" ? "Suurenna osio" : "Expand section")}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            <HeadingIcon className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+      {open && <div className="mt-4 space-y-3">{children}</div>}
+    </section>
+  );
+}
+
 function categoryBadgeLabel(listing: { isForest: boolean; category: string }, lang: string) {
   if (listing.isForest) return lang === "fi" ? "METSÄTORI" : "FOREST MARKET";
   return listing.category === "job"
@@ -79,7 +121,7 @@ function categoryBadgeLabel(listing: { isForest: boolean; category: string }, la
     : (lang === "fi" ? "TILA" : "FARM");
 }
 
-export function UserProfile() {
+export function UserProfile({ focusSection, focusRequest = 0 }: { focusSection?: string | null; focusRequest?: number }) {
   const { tr, lang } = useLang();
 
   const [role, setRole] = useState<'picker' | 'farmer'>('picker');
@@ -92,6 +134,43 @@ export function UserProfile() {
 
   const [forestListings, setForestListings] = useState<any[]>([]);
   const [farmListings, setFarmListings] = useState<any[]>([]);
+  const [farmerApplications, setFarmerApplications] = useState<Array<{
+    id: string;
+    listingId: string;
+    listingTitle: string;
+    applicantName: string;
+    applicantCity?: string | null;
+    applicantRegion?: string | null;
+    message: string;
+    createdAt: string | null;
+    dateStart: string | null;
+    status: "pending" | "accepted" | "rejected";
+    rejectionReason: string | null;
+  }>>([]);
+  const [farmerBookings, setFarmerBookings] = useState<Array<{
+    id: string;
+    listingId: string;
+    listingTitle: string;
+    applicantName: string;
+    bookingDate: string;
+    partySize: number;
+    message: string;
+    createdAt: string | null;
+    status: "pending" | "confirmed" | "cancelled";
+    rejectionReason: string | null;
+  }>>([]);
+  const [myAcceptedApplications, setMyAcceptedApplications] = useState<Array<{
+    id: string;
+    listingTitle: string;
+    dateStart: string | null;
+    dateEnd: string | null;
+    bookingDate?: string | null;
+    status: "accepted" | "rejected" | "confirmed" | "cancelled";
+    rejectionReason: string | null;
+  }>>([]);
+  const [rejectingApplication, setRejectingApplication] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [applicationDecisionBusy, setApplicationDecisionBusy] = useState<string | null>(null);
   const myListings = useMemo(() => [...farmListings, ...forestListings], [farmListings, forestListings]);
 
   const [farm, setFarm] = useState<FarmRecord | null>(null);
@@ -111,6 +190,78 @@ export function UserProfile() {
   const [lastSavedWasEdit, setLastSavedWasEdit] = useState(false);
 
   const [profileNotice, setProfileNotice] = useState<null | { edit: boolean }>(null);
+  const pendingFarmerApplications = useMemo(
+    () => farmerApplications.filter((application) => application.status === "pending"),
+    [farmerApplications]
+  );
+  const pendingFarmerBookings = useMemo(
+    () => farmerBookings.filter((booking) => booking.status === "pending"),
+    [farmerBookings]
+  );
+  const sortedOpenRequests = useMemo(() => {
+    const requests = [
+      ...pendingFarmerBookings.map((booking) => ({
+        kind: "booking" as const,
+        id: booking.id,
+        date: booking.bookingDate,
+        booking,
+      })),
+      ...pendingFarmerApplications.map((application) => ({
+        kind: "application" as const,
+        id: application.id,
+        date: application.dateStart,
+        application,
+      })),
+    ];
+    return requests.sort((a, b) => {
+      const aDate = a.date ? new Date(`${a.date.slice(0, 10)}T00:00:00`).getTime() : Number.NaN;
+      const bDate = b.date ? new Date(`${b.date.slice(0, 10)}T00:00:00`).getTime() : Number.NaN;
+      const aValid = Number.isFinite(aDate);
+      const bValid = Number.isFinite(bDate);
+      if (!aValid) return bValid ? 1 : 0;
+      if (!bValid) return -1;
+      return aDate - bDate;
+    });
+  }, [pendingFarmerApplications, pendingFarmerBookings]);
+  const reviewedFarmerBookings = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return farmerBookings
+      .filter((booking) => booking.status !== "pending")
+      .sort((a, b) => {
+        const aTime = new Date(`${a.bookingDate.slice(0, 10)}T00:00:00`).getTime();
+        const bTime = new Date(`${b.bookingDate.slice(0, 10)}T00:00:00`).getTime();
+        const aValid = Number.isFinite(aTime);
+        const bValid = Number.isFinite(bTime);
+        if (!aValid) return bValid ? 1 : 0;
+        if (!bValid) return -1;
+        const aUpcoming = aTime >= today.getTime();
+        const bUpcoming = bTime >= today.getTime();
+        if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+        return aUpcoming ? aTime - bTime : bTime - aTime;
+      });
+  }, [farmerBookings]);
+  const sortedMyAcceptedApplications = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dateFor = (item: typeof myAcceptedApplications[number]) => item.bookingDate || item.dateStart || item.dateEnd || null;
+    return [...myAcceptedApplications].sort((a, b) => {
+      const aValue = dateFor(a);
+      const bValue = dateFor(b);
+      if (!aValue) return bValue ? 1 : 0;
+      if (!bValue) return -1;
+      const aDate = new Date(`${aValue.slice(0, 10)}T00:00:00`);
+      const bDate = new Date(`${bValue.slice(0, 10)}T00:00:00`);
+      const aTime = aDate.getTime();
+      const bTime = bDate.getTime();
+      if (!Number.isFinite(aTime)) return Number.isFinite(bTime) ? 1 : 0;
+      if (!Number.isFinite(bTime)) return -1;
+      const aUpcoming = aTime >= today.getTime();
+      const bUpcoming = bTime >= today.getTime();
+      if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+      return aUpcoming ? aTime - bTime : bTime - aTime;
+    });
+  }, [myAcceptedApplications]);
 
   useEffect(() => {
     async function loadProfileAndForestListings() {
@@ -139,6 +290,259 @@ export function UserProfile() {
     loadProfileAndForestListings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    async function loadFarmerApplications() {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        setFarmerApplications([]);
+        setFarmerBookings([]);
+        setMyAcceptedApplications([]);
+        return;
+      }
+
+      try {
+        const apiBase = import.meta.env.VITE_API_URL || "";
+        const [listingResult, applicantResponse, applicantBookingsResponse] = await Promise.all([
+          supabase
+            .from('farm_listings')
+            .select('id, title, date_start')
+            .eq('owner_id', user.id)
+            .order('created_at', { ascending: false }),
+          fetch(`${apiBase}/api/applications?applicant_id=${encodeURIComponent(user.id)}`),
+          fetch(`${apiBase}/api/bookings?booker_id=${encodeURIComponent(user.id)}`),
+        ]);
+        if (listingResult.error) throw new Error(`Failed to load farmer listings: ${listingResult.error.message}`);
+        if (!applicantResponse.ok) throw new Error(`Failed to load applicant applications: ${applicantResponse.status}`);
+        if (!applicantBookingsResponse.ok) throw new Error(`Failed to load applicant bookings: ${applicantBookingsResponse.status}`);
+
+        const listingRows = listingResult.data ?? [];
+        const listingIds = listingRows.map((row) => row.id).filter(Boolean);
+        const [farmerResponse, farmerBookingsResponse] = listingIds.length > 0
+          ? await Promise.all([
+            fetch(`${apiBase}/api/applications?listing_ids=${encodeURIComponent(listingIds.join(','))}`),
+            fetch(`${apiBase}/api/bookings?listing_ids=${encodeURIComponent(listingIds.join(','))}`),
+          ])
+          : [null, null];
+        if (farmerResponse && !farmerResponse.ok) throw new Error(`Failed to load farmer applications: ${farmerResponse.status}`);
+        if (farmerBookingsResponse && !farmerBookingsResponse.ok) throw new Error(`Failed to load farmer bookings: ${farmerBookingsResponse.status}`);
+        const farmerPayload = farmerResponse ? await farmerResponse.json() : { applications: [] };
+        const farmerBookingsPayload = farmerBookingsResponse ? await farmerBookingsResponse.json() : { bookings: [] };
+        const farmerApplicationsPayload = Array.isArray(farmerPayload.applications) ? farmerPayload.applications : [];
+        const applicantPayload = await applicantResponse.json();
+        const applicantApplications = Array.isArray(applicantPayload.applications) ? applicantPayload.applications : [];
+        const applicantBookingsPayload = await applicantBookingsResponse.json();
+        const applicantBookings = Array.isArray(applicantBookingsPayload.bookings) ? applicantBookingsPayload.bookings : [];
+
+        setMyAcceptedApplications(
+          [
+            ...applicantApplications
+              .filter((application) => application.status === "accepted" || application.status === "rejected")
+              .map((application) => ({
+                id: application.id,
+                listingTitle: application.listing_title || (lang === "fi" ? "Ilmoitus" : "Listing"),
+                dateStart: application.date_start || null,
+                dateEnd: application.date_end || null,
+                status: application.status as "accepted" | "rejected",
+                rejectionReason: application.rejection_reason || null,
+              })),
+            ...applicantBookings
+              .filter((booking) => booking.status === "confirmed" || booking.status === "cancelled")
+              .map((booking) => ({
+                id: `booking-${booking.id}`,
+                listingTitle: booking.listing_title || (lang === "fi" ? "Itsepoiminta" : "Picking"),
+                dateStart: null,
+                dateEnd: null,
+                bookingDate: booking.booking_date || null,
+                status: booking.status as "confirmed" | "cancelled",
+                rejectionReason: booking.rejection_reason || null,
+              })),
+          ]
+        );
+
+        const farmerBookings = Array.isArray(farmerBookingsPayload.bookings) ? farmerBookingsPayload.bookings : [];
+        const applicantIds = Array.from(new Set([
+          ...farmerApplicationsPayload.map((application) => application.applicant_id),
+          ...farmerBookings.map((booking) => booking.booker_id),
+        ].filter(Boolean)));
+        let applicantMap = new Map<string, { full_name?: string | null; city?: string | null; region?: string | null }>();
+
+        if (applicantIds.length > 0) {
+          const { data: applicantProfiles, error: applicantError } = await supabase
+            .from('profiles')
+            .select('id, full_name, city, region')
+            .in('id', applicantIds);
+
+          if (applicantError) {
+            console.error("Failed to load applicant profiles:", applicantError.message);
+          } else {
+            for (const profile of applicantProfiles ?? []) {
+              applicantMap.set(profile.id, profile);
+            }
+          }
+        }
+
+        const listingMap = new Map(listingRows.map((row) => [row.id, row.title]));
+        const listingDateMap = new Map(listingRows.map((row) => [row.id, row.date_start]));
+
+        setFarmerApplications(
+          farmerApplicationsPayload
+            .map((application) => {
+              const applicantProfile = applicantMap.get(application.applicant_id);
+              return {
+                id: application.id,
+                listingId: application.listing_id,
+                listingTitle: application.listing_title || listingMap.get(application.listing_id) || (lang === "fi" ? "Ilmoitus" : "Listing"),
+                applicantName: applicantProfile?.full_name || (lang === "fi" ? "Hakija" : "Applicant"),
+                applicantCity: applicantProfile?.city ?? null,
+                applicantRegion: applicantProfile?.region ?? null,
+                message: application.message || (lang === "fi" ? "Hakija ei ole jättänyt viestiä." : "Applicant did not leave a message."),
+                createdAt: application.createdAt || null,
+                dateStart: application.date_start || listingDateMap.get(application.listing_id) || null,
+                status: application.status || "pending",
+                rejectionReason: application.rejection_reason || null,
+              };
+            })
+            .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
+        );
+        setFarmerBookings(
+          farmerBookings
+            .map((booking) => {
+              const applicantProfile = applicantMap.get(booking.booker_id);
+              return {
+                id: booking.id,
+                listingId: booking.listing_id,
+                listingTitle: booking.listing_title || listingMap.get(booking.listing_id) || (lang === "fi" ? "Itsepoiminta" : "Picking"),
+                applicantName: applicantProfile?.full_name || (lang === "fi" ? "Varaaja" : "Booker"),
+                bookingDate: booking.booking_date,
+                partySize: Number(booking.party_size) || 1,
+                message: booking.message || "",
+                createdAt: booking.createdAt || null,
+                status: booking.status || "pending",
+                rejectionReason: booking.rejection_reason || null,
+              };
+            })
+            .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
+        );
+      } catch (error) {
+        console.error("Failed to load farmer applications:", error);
+        setFarmerApplications([]);
+        setFarmerBookings([]);
+        setMyAcceptedApplications([]);
+      }
+    }
+
+    loadFarmerApplications();
+  }, [lang]);
+
+  useEffect(() => {
+    if (!focusSection) return;
+    setRole(focusSection === "open-applications" ? "farmer" : "picker");
+    setActiveTab("profile");
+    window.setTimeout(() => {
+      document.getElementById(`profile-${focusSection}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+  }, [focusSection, focusRequest, pendingFarmerApplications.length, pendingFarmerBookings.length, myAcceptedApplications.length]);
+
+  async function handleApplicationDecision(applicationId: string, status: "accepted" | "rejected", reason = "") {
+    setApplicationDecisionBusy(applicationId);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error(lang === "fi" ? "Kirjaudu sisään uudelleen." : "Please sign in again.");
+
+      const apiBase = import.meta.env.VITE_API_URL || "";
+      const response = await fetch(`${apiBase}/api/applications/${encodeURIComponent(applicationId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          farmer_id: user.id,
+          status,
+          rejection_reason: status === "rejected" ? reason.trim() : null,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Failed to update application: ${response.status}`);
+
+      setFarmerApplications((current) => current.map((application) =>
+        application.id === applicationId
+          ? { ...application, status, rejectionReason: result.application?.rejection_reason ?? null }
+          : application
+      ));
+      setRejectingApplication(null);
+      setRejectionReason("");
+      await farmManagerRef.current?.refreshListings();
+    } catch (error) {
+      console.error("Failed to update application:", error);
+      alert(error instanceof Error ? error.message : (lang === "fi" ? "Hakemuksen käsittely epäonnistui." : "Could not update application."));
+    } finally {
+      setApplicationDecisionBusy(null);
+    }
+  }
+
+  async function handleBookingDecision(bookingId: string, status: "confirmed" | "cancelled", reason = "") {
+    setApplicationDecisionBusy(`booking-${bookingId}`);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error(lang === "fi" ? "Kirjaudu sisään uudelleen." : "Please sign in again.");
+
+      const apiBase = import.meta.env.VITE_API_URL || "";
+      const response = await fetch(`${apiBase}/api/bookings/${encodeURIComponent(bookingId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          farmer_id: user.id,
+          status,
+          rejection_reason: status === "cancelled" ? reason.trim() : null,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Failed to update booking: ${response.status}`);
+
+      setFarmerBookings((current) => current.map((booking) =>
+        booking.id === bookingId
+          ? { ...booking, status, rejectionReason: result.booking?.rejection_reason ?? null }
+          : booking
+      ));
+      setRejectingApplication(null);
+      setRejectionReason("");
+      await farmManagerRef.current?.refreshListings();
+    } catch (error) {
+      console.error("Failed to update booking:", error);
+      alert(error instanceof Error ? error.message : (lang === "fi" ? "Varauksen käsittely epäonnistui." : "Could not update booking."));
+    } finally {
+      setApplicationDecisionBusy(null);
+    }
+  }
+
+  async function handleArchiveRecord(kind: "application" | "booking", id: string) {
+    setApplicationDecisionBusy(`archive-${kind}-${id}`);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error(lang === "fi" ? "Kirjaudu sisään uudelleen." : "Please sign in again.");
+
+      const apiBase = import.meta.env.VITE_API_URL || "";
+      const response = await fetch(`${apiBase}/api/${kind === "application" ? "applications" : "bookings"}/${encodeURIComponent(id)}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: user.id }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Failed to remove record: ${response.status}`);
+
+      if (kind === "application") {
+        setFarmerApplications((current) => current.filter((application) => application.id !== id));
+        setMyAcceptedApplications((current) => current.filter((application) => application.id !== id));
+      } else {
+        setFarmerBookings((current) => current.filter((booking) => booking.id !== id));
+        setMyAcceptedApplications((current) => current.filter((application) => application.id !== `booking-${id}`));
+      }
+    } catch (error) {
+      console.error("Failed to remove processed record:", error);
+      alert(error instanceof Error ? error.message : (lang === "fi" ? "Poistaminen epäonnistui." : "Could not remove item."));
+    } finally {
+      setApplicationDecisionBusy(null);
+    }
+  }
 
   function resetAllForms() {
     setEditingListing(null);
@@ -429,6 +833,390 @@ export function UserProfile() {
             </div>
 
             <div className="lg:col-span-2">
+              {role === "farmer" && (pendingFarmerApplications.length > 0 || pendingFarmerBookings.length > 0) && (
+                <CollapsibleSection
+                  key={focusRequest}
+                  id="profile-open-applications"
+                  title={lang === "fi" ? "Avoimet hakemukset" : "Open applications"}
+                  count={pendingFarmerApplications.length + pendingFarmerBookings.length}
+                  lang={lang}
+                  forceOpen={focusSection === "open-applications"}
+                >
+                  {sortedOpenRequests.map((request) => {
+                    const isBooking = request.kind === "booking";
+                    const id = isBooking ? `booking-${request.id}` : request.id;
+                    const title = isBooking ? request.booking.listingTitle : request.application.listingTitle;
+                    const name = isBooking ? request.booking.applicantName : request.application.applicantName;
+                    const message = isBooking ? request.booking.message : request.application.message;
+                    const rejectId = `open-request-rejection-${id}`;
+
+                    return (
+                      <div key={`${request.kind}-${request.id}`} className="rounded-2xl border border-primary/10 bg-card p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary/80">
+                          {isBooking
+                            ? (lang === "fi" ? "Itsepoimintavaraus" : "Picking booking")
+                            : (lang === "fi" ? "Työhakemus" : "Work application")}
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2">
+                          <p className="font-medium text-foreground">{title}</p>
+                          {request.date && (
+                            <span className="text-xs text-muted-foreground">{formatShortDate(request.date, true)}</span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {name}
+                          {isBooking
+                            ? ` · ${request.booking.partySize} ${lang === "fi" ? "poimijaa" : "pickers"}`
+                            : (request.application.applicantCity || request.application.applicantRegion)
+                              ? ` · ${[request.application.applicantCity, request.application.applicantRegion].filter(Boolean).join(", ")}`
+                              : ""}
+                        </p>
+                        {message && <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">{message}</p>}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={applicationDecisionBusy === id}
+                            onClick={() => isBooking
+                              ? handleBookingDecision(request.id, "confirmed")
+                              : handleApplicationDecision(request.id, "accepted")}
+                            className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                          >
+                            {isBooking
+                              ? (lang === "fi" ? "Hyväksy varaus" : "Confirm booking")
+                              : (lang === "fi" ? "Hyväksy" : "Accept")}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={applicationDecisionBusy === id}
+                            onClick={() => { setRejectingApplication(id); setRejectionReason(""); }}
+                            className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
+                          >
+                            {lang === "fi" ? "Hylkää" : "Decline"}
+                          </button>
+                        </div>
+                        {rejectingApplication === id && (
+                          <div className="mt-3 rounded-xl border border-border bg-background p-3">
+                            <label className="block text-sm font-medium text-foreground" htmlFor={rejectId}>
+                              {lang === "fi" ? "Hylkäyksen syy (valinnainen)" : "Reason for declining (optional)"}
+                            </label>
+                            <textarea
+                              id={rejectId}
+                              value={rejectionReason}
+                              onChange={(event) => setRejectionReason(event.target.value)}
+                              maxLength={1000}
+                              rows={3}
+                              className="mt-2 w-full resize-y rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                            <div className="mt-3 flex justify-end gap-2">
+                              <button type="button" onClick={() => setRejectingApplication(null)} className="rounded-lg px-3 py-2 text-xs text-muted-foreground hover:bg-secondary">
+                                {lang === "fi" ? "Peruuta" : "Cancel"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={applicationDecisionBusy === id}
+                                onClick={() => isBooking
+                                  ? handleBookingDecision(request.id, "cancelled", rejectionReason)
+                                  : handleApplicationDecision(request.id, "rejected", rejectionReason)}
+                                className="rounded-lg bg-destructive px-3 py-2 text-xs font-medium text-destructive-foreground disabled:opacity-50"
+                              >
+                                {lang === "fi" ? "Vahvista hylkäys" : "Confirm decline"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </CollapsibleSection>
+              )}
+
+              {role === "picker" && myAcceptedApplications.length > 0 && (
+                <CollapsibleSection
+                  key={focusRequest}
+                  id="profile-accepted-results"
+                  title={lang === "fi" ? "Hyväksytyt varaukset ja työt" : "Accepted bookings and work"}
+                  count={sortedMyAcceptedApplications.length}
+                  lang={lang}
+                  forceOpen={focusSection === "accepted-results"}
+                >
+                    {sortedMyAcceptedApplications.map((application) => (
+                      <div key={application.id} className="rounded-xl border border-primary/10 bg-card p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-medium text-foreground">{application.listingTitle}</p>
+                          <div className="flex items-center gap-2">
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                              application.status === "accepted" || application.status === "confirmed"
+                                ? "bg-primary/10 text-primary"
+                                : "bg-destructive/10 text-destructive"
+                            }`}>
+                              {application.status === "accepted" || application.status === "confirmed"
+                                ? (lang === "fi" ? "Hyväksytty" : "Accepted")
+                                : (lang === "fi" ? "Hylätty" : "Declined")}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={applicationDecisionBusy === (application.id.startsWith("booking-")
+                                ? `archive-booking-${application.id.slice(8)}`
+                                : `archive-application-${application.id}`)}
+                              onClick={() => application.id.startsWith("booking-")
+                                ? handleArchiveRecord("booking", application.id.slice(8))
+                                : handleArchiveRecord("application", application.id)}
+                              aria-label={lang === "fi" ? "Poista omasta listasta" : "Remove from my list"}
+                              title={lang === "fi" ? "Poista omasta listasta" : "Remove from my list"}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                        {application.status === "confirmed" && application.bookingDate && (
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {formatShortDate(application.bookingDate, true)}
+                          </p>
+                        )}
+                        {application.status === "accepted" && application.dateStart && application.dateEnd && (
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {formatShortDate(application.dateStart)} – {formatShortDate(application.dateEnd, true)}
+                          </p>
+                        )}
+                        {(application.status === "rejected" || application.status === "cancelled") && application.rejectionReason && (
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">{lang === "fi" ? "Syy: " : "Reason: "}</span>
+                            {application.rejectionReason}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                </CollapsibleSection>
+              )}
+
+              {role === "farmer" && farmerBookings.some((booking) => booking.status !== "pending") && (
+                <CollapsibleSection
+                  id="profile-reviewed-bookings"
+                  title={lang === "fi" ? "Käsitellyt itsepoimintavaraukset" : "Reviewed picking requests"}
+                  count={reviewedFarmerBookings.length}
+                  lang={lang}
+                >
+                    {reviewedFarmerBookings.map((booking) => (
+                      <div key={booking.id} className="rounded-2xl border border-primary/10 bg-card p-4">
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div>
+                            <p className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${
+                              booking.status === "confirmed" ? "text-primary" : booking.status === "cancelled" ? "text-destructive" : "text-primary/80"
+                            }`}>
+                              {booking.status === "confirmed"
+                                ? (lang === "fi" ? "Hyväksytty varaus" : "Confirmed booking")
+                                : booking.status === "cancelled"
+                                  ? (lang === "fi" ? "Hylätty varaus" : "Declined booking")
+                                  : (lang === "fi" ? "Uusi varauspyyntö" : "New booking request")}
+                            </p>
+                            <p className="mt-1 text-foreground font-medium">{booking.listingTitle}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                              {formatShortDate(booking.bookingDate, true)}
+                            </span>
+                            {booking.status !== "pending" && (
+                              <button
+                                type="button"
+                                disabled={applicationDecisionBusy === `archive-booking-${booking.id}`}
+                                onClick={() => handleArchiveRecord("booking", booking.id)}
+                                aria-label={lang === "fi" ? "Poista omasta listasta" : "Remove from my list"}
+                                title={lang === "fi" ? "Poista omasta listasta" : "Remove from my list"}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">{booking.applicantName}</span>
+                          <span>·</span>
+                          <span>{booking.partySize} {lang === "fi" ? "henkilöä" : "people"}</span>
+                        </div>
+                        {booking.message && (
+                          <p className="mt-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">{booking.message}</p>
+                        )}
+                        {booking.status === "cancelled" && booking.rejectionReason && (
+                          <p className="mt-3 rounded-lg bg-destructive/5 px-3 py-2 text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">{lang === "fi" ? "Hylkäyksen syy: " : "Reason: "}</span>
+                            {booking.rejectionReason}
+                          </p>
+                        )}
+
+                        {booking.status === "pending" && (
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={applicationDecisionBusy === `booking-${booking.id}`}
+                              onClick={() => handleBookingDecision(booking.id, "confirmed")}
+                              className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                            >
+                              {lang === "fi" ? "Hyväksy varaus" : "Confirm booking"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={applicationDecisionBusy === `booking-${booking.id}`}
+                              onClick={() => { setRejectingApplication(`booking-${booking.id}`); setRejectionReason(""); }}
+                              className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
+                            >
+                              {lang === "fi" ? "Hylkää" : "Decline"}
+                            </button>
+                          </div>
+                        )}
+                        {rejectingApplication === `booking-${booking.id}` && (
+                          <div className="mt-4 rounded-xl border border-border bg-background p-3">
+                            <label className="block text-sm font-medium text-foreground" htmlFor={`booking-rejection-${booking.id}`}>
+                              {lang === "fi" ? "Hylkäyksen syy (valinnainen)" : "Reason for declining (optional)"}
+                            </label>
+                            <textarea
+                              id={`booking-rejection-${booking.id}`}
+                              value={rejectionReason}
+                              onChange={(event) => setRejectionReason(event.target.value)}
+                              maxLength={1000}
+                              rows={3}
+                              className="mt-2 w-full resize-y rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                            <div className="mt-3 flex justify-end gap-2">
+                              <button type="button" onClick={() => setRejectingApplication(null)} className="rounded-lg px-3 py-2 text-xs text-muted-foreground hover:bg-secondary">
+                                {lang === "fi" ? "Peruuta" : "Cancel"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={applicationDecisionBusy === `booking-${booking.id}`}
+                                onClick={() => handleBookingDecision(booking.id, "cancelled", rejectionReason)}
+                                className="rounded-lg bg-destructive px-3 py-2 text-xs font-medium text-destructive-foreground disabled:opacity-50"
+                              >
+                                {lang === "fi" ? "Vahvista hylkäys" : "Confirm decline"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </CollapsibleSection>
+              )}
+
+              {role === "farmer" && farmerApplications.some((application) => application.status !== "pending") && (
+                <CollapsibleSection
+                  id="profile-reviewed-applications"
+                  title={lang === "fi" ? "Käsitellyt työhakemukset" : "Reviewed work applications"}
+                  count={farmerApplications.filter((application) => application.status !== "pending").length}
+                  lang={lang}
+                >
+                    {farmerApplications.filter((application) => application.status !== "pending").map((application) => (
+                      <div key={application.id} className="rounded-2xl border border-primary/10 bg-card p-4">
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div>
+                            <p className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${
+                              application.status === "accepted" ? "text-primary" : application.status === "rejected" ? "text-destructive" : "text-primary/80"
+                            }`}>
+                              {application.status === "accepted"
+                                ? (lang === "fi" ? "Hyväksytty" : "Accepted")
+                                : application.status === "rejected"
+                                  ? (lang === "fi" ? "Hylätty" : "Declined")
+                                  : (lang === "fi" ? "Uusi hakemus" : "New application")}
+                            </p>
+                            <p className="mt-1 text-foreground font-medium">{application.listingTitle}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {application.createdAt && (
+                              <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                {new Date(application.createdAt).toLocaleDateString(lang === "fi" ? "fi-FI" : "en-GB", { day: "numeric", month: "short" })}
+                              </span>
+                            )}
+                            {application.status !== "pending" && (
+                              <button
+                                type="button"
+                                disabled={applicationDecisionBusy === `archive-application-${application.id}`}
+                                onClick={() => handleArchiveRecord("application", application.id)}
+                                aria-label={lang === "fi" ? "Poista omasta listasta" : "Remove from my list"}
+                                title={lang === "fi" ? "Poista omasta listasta" : "Remove from my list"}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">{application.applicantName}</span>
+                          {(application.applicantCity || application.applicantRegion) && (
+                            <>
+                              <span>·</span>
+                              <span>{[application.applicantCity, application.applicantRegion].filter(Boolean).join(", ")}</span>
+                            </>
+                          )}
+                        </div>
+
+                        <p className="mt-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">
+                          {application.message}
+                        </p>
+
+                        {application.status === "rejected" && application.rejectionReason && (
+                          <p className="mt-3 rounded-lg bg-destructive/5 px-3 py-2 text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">{lang === "fi" ? "Hylkäyksen syy: " : "Reason: "}</span>
+                            {application.rejectionReason}
+                          </p>
+                        )}
+
+                        {application.status === "pending" && (
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={applicationDecisionBusy === application.id}
+                              onClick={() => handleApplicationDecision(application.id, "accepted")}
+                              className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                            >
+                              {lang === "fi" ? "Hyväksy" : "Accept"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={applicationDecisionBusy === application.id}
+                              onClick={() => { setRejectingApplication(application.id); setRejectionReason(""); }}
+                              className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50"
+                            >
+                              {lang === "fi" ? "Hylkää" : "Decline"}
+                            </button>
+                          </div>
+                        )}
+
+                        {rejectingApplication === application.id && (
+                          <div className="mt-4 rounded-xl border border-border bg-background p-3">
+                            <label className="block text-sm font-medium text-foreground" htmlFor={`rejection-${application.id}`}>
+                              {lang === "fi" ? "Hylkäyksen syy (valinnainen)" : "Reason for declining (optional)"}
+                            </label>
+                            <textarea
+                              id={`rejection-${application.id}`}
+                              value={rejectionReason}
+                              onChange={(event) => setRejectionReason(event.target.value)}
+                              maxLength={1000}
+                              rows={3}
+                              className="mt-2 w-full resize-y rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                            <div className="mt-3 flex justify-end gap-2">
+                              <button type="button" onClick={() => setRejectingApplication(null)} className="rounded-lg px-3 py-2 text-xs text-muted-foreground hover:bg-secondary">
+                                {lang === "fi" ? "Peruuta" : "Cancel"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={applicationDecisionBusy === application.id}
+                                onClick={() => handleApplicationDecision(application.id, "rejected", rejectionReason)}
+                                className="rounded-lg bg-destructive px-3 py-2 text-xs font-medium text-destructive-foreground disabled:opacity-50"
+                              >
+                                {lang === "fi" ? "Vahvista hylkäys" : "Confirm decline"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </CollapsibleSection>
+              )}
+
               <div className="flex items-center justify-between mb-4">
                 <h2 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500 }} className="text-foreground text-xl">
                   {tr("profile_listings_title")}
