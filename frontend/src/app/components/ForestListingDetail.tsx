@@ -5,6 +5,7 @@
 
 import { ArrowLeft, MapPin, Clock, Scale, Truck, ShieldCheck, Star } from "lucide-react";
 import type { ForestListing } from "../../services/forestListings";
+import { LocationMap } from "./LocationMap";
 
 interface ForestListingDetailProps {
   listing: ForestListing;
@@ -12,12 +13,14 @@ interface ForestListingDetailProps {
   contacted: boolean;
   onBack: () => void;
   onContact: () => void;
+  /** "12 km" from the user, or "— km" when unknown */
+  distanceLabel?: string;
 }
 
-// litre - "L"
+// Database stores "litre", but on screen we want "L"
 const unitLabel = (unit: string) => (unit === "litre" ? "L" : unit);
 
-export function ForestListingDetail({ listing, lang, contacted, onBack, onContact }: ForestListingDetailProps) {
+export function ForestListingDetail({ listing, lang, contacted, onBack, onContact, distanceLabel }: ForestListingDetailProps) {
   const fi = lang === "fi";
   const unit = unitLabel(listing.unit);
 
@@ -55,7 +58,7 @@ export function ForestListingDetail({ listing, lang, contacted, onBack, onContac
         </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: image + description */}
+          {/* ── Left: image + description ── */}
           <div className="lg:col-span-2 space-y-5">
             <div className="relative rounded-2xl overflow-hidden bg-secondary" style={{ height: 360 }}>
               <img
@@ -82,6 +85,9 @@ export function ForestListingDetail({ listing, lang, contacted, onBack, onContac
                 <span className="flex items-center gap-1.5">
                   <MapPin className="w-4 h-4" />
                   {listing.city}, {listing.region}
+                  {distanceLabel && distanceLabel !== "— km" && (
+                    <span className="text-foreground font-medium">· {distanceLabel}</span>
+                  )}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4" />
@@ -120,9 +126,20 @@ export function ForestListingDetail({ listing, lang, contacted, onBack, onContac
                 </div>
               </div>
             </div>
+
+            {/* Location map */}
+            <div className="bg-card rounded-2xl border border-border p-6">
+              <h2 className="text-sm font-medium text-foreground mb-4">{fi ? "Sijainti" : "Location"}</h2>
+              <LocationMap
+                lat={listing.lat}
+                lng={listing.lng}
+                label={`${listing.city}, ${listing.region}`}
+                lang={lang}
+              />
+            </div>
           </div>
 
-          {/* Right: price + seller + contact */}
+          {/* ── Right: price + seller + contact ── */}
           <div className="space-y-5">
             <div className="bg-card rounded-2xl border border-border p-6 lg:sticky lg:top-24">
               <div className="flex items-baseline gap-1 mb-1">

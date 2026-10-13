@@ -169,7 +169,7 @@ interface SupabaseFarmListing {
   booking_required: boolean;   
   farm_address: string | null; 
 
-  owner_id?: string
+  //owner_id?: string
   is_organic: boolean
   is_accessible: boolean
   family_friendly: boolean
@@ -181,6 +181,8 @@ interface SupabaseFarmListing {
   contract_based: boolean
   machine_work: boolean
   primary_image_url: string | null
+  lat: number | null
+  lng: number | null
 }
 
 // ── Host verification (batched, no view changes needed) ──────
@@ -261,7 +263,9 @@ export type FarmWithVerification = Farm & {
   listingStatus: ListingStatus;
   bookingRequired: boolean;    
   spotsTotal: number | null;   
-  address: string | null;      
+  address: string | null;    
+   lat: number | null;
+  lng: number | null;  
 };
 
 function mapToFarm(
@@ -340,6 +344,8 @@ function mapToFarm(
     bookingRequired: Boolean(row.booking_required),
     spotsTotal: row.spots_total ?? null,
     address: row.farm_address ?? null,
+    lat: row.lat ?? null,
+    lng: row.lng ?? null,
   }
 }
 
