@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useLang } from "../i18n/LanguageContext";
 import { fetchForestListings, type ForestListing } from "../../services/forestListings";
 import { ContactFormModal } from "./ContactFormModal";
+import { ForestListingDetail } from "./ForestListingDetail";
 
 /** ForagerMarket component displays a list of forest listings with filtering and search functionality. */
 export function ForagerMarket() {
@@ -33,6 +34,8 @@ export function ForagerMarket() {
   const [contactedId, setContactedId] = useState<string | null>(null); 
 
   const [contactTarget, setContactTarget] = useState<ForestListing | null>(null);
+  // The listing whose detail page is open (null = show the grid)
+  const [selected, setSelected] = useState<ForestListing | null>(null);
 
   const handleContactSuccess = () => {
     if (contactTarget) setContactedId(contactTarget.id);
@@ -67,6 +70,16 @@ export function ForagerMarket() {
 
   return (
     <>
+      {selected ? (
+        // Detail page for the clicked listing
+        <ForestListingDetail
+          listing={selected}
+          lang={lang}
+          contacted={contactedId === selected.id}
+          onBack={() => setSelected(null)}
+          onContact={() => setContactTarget(selected)}
+        />
+      ) : (
       <div style={{ fontFamily: "'Inter', sans-serif" }} className="min-h-screen bg-background">
         <div className="bg-card border-b border-border">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -123,14 +136,17 @@ export function ForagerMarket() {
                 lang={lang}
                 tr={tr}
                 contacted={contactedId === listing.id}
-                onContact={() => setContactTarget(listing)} 
-              />                
-              
+                onContact={() => setContactTarget(listing)}
+                onSelect={() => { setSelected(listing); window.scrollTo({ top: 0 }); }}
+              />
             ))}
           </div>
         </div>
-        
-        <ContactFormModal
+      </div>
+      )}
+
+      {/* Contact modal — shared by the grid and the detail page */}
+      <ContactFormModal
           open={contactTarget !== null}
           onClose={() => setContactTarget(null)}
           recipientName={contactTarget?.seller_name}
@@ -141,7 +157,6 @@ export function ForagerMarket() {
           
           onSuccess={handleContactSuccess}
         />
-      </div>
     </>
   );
 }
@@ -153,12 +168,14 @@ function ForageCard({
   tr,
   contacted,
   onContact,
+  onSelect,
 }: {
   listing: ForestListing;
   lang: string;
   tr: (k: any) => string;
   contacted: boolean;
   onContact: () => void;
+  onSelect: () => void;
 }) {
   const product = listing.product_name;
   const category = listing.product_type === "marjat" ? (lang === "fi" ? "Marjat" : "Berries") : listing.product_type === "sienet" ? (lang === "fi" ? "Sienet" : "Mushrooms") : (lang === "fi" ? "Muut" : "Other");
@@ -173,7 +190,10 @@ function ForageCard({
     .toUpperCase();
 
   return (
-    <div className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-md hover:border-primary/20 transition-all duration-200 group">
+    <div
+      onClick={onSelect}
+      className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-md hover:border-primary/20 transition-all duration-200 group cursor-pointer"
+    >
       <div className="relative overflow-hidden" style={{ height: 200, background: "#E8E4DA" }}>
         <img
           src={listing.primary_image_url ?? "https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=900&h=520&fit=crop&auto=format"}
@@ -243,11 +263,14 @@ function ForageCard({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-2 rounded-lg border border-border hover:border-primary/30 transition-colors">
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="p-2 rounded-lg border border-border hover:border-primary/30 transition-colors"
+            >
               <MessageCircle className="w-4 h-4 text-muted-foreground" />
             </button>
             <button
-              onClick={onContact}
+              onClick={(e) => { e.stopPropagation(); onContact(); }}
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
                 contacted
                   ? "bg-secondary text-secondary-foreground"
