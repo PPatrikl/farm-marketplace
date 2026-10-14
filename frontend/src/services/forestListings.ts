@@ -77,7 +77,6 @@ export async function fetchMushroomListings(): Promise<ForestListing[]> {
   return data as ForestListing[]
 }
 
-// --------------new ------------------
 import type { UploadedImage } from './storage'; 
 
 export interface CreateForestListingInput {
@@ -143,8 +142,6 @@ export async function createForestListing(input: CreateForestListingInput) {
   return data;
 }
 
-
-// --------------new (edit/delete, added by Claude — not yet reviewed) ------------------
 export interface UpdateForestListingInput {
   product_name?: string;
   product_type?: string;
@@ -216,4 +213,24 @@ export async function deleteForestListing(listingId: string) {
     console.error('[forestListings] Error deleting ad:', error.message);
     throw error;
   }
+}
+
+// --  for landing page -----------
+export async function getRecentForestListings(limit: number) {
+  const { data, error } = await supabase
+    .from('forest_listings')
+    .select(`
+      id,
+      product_type,
+      product_name,
+      city,
+      created_at,
+      profiles ( full_name )
+    `)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data;
 }

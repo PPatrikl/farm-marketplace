@@ -169,7 +169,7 @@ interface SupabaseFarmListing {
   booking_required: boolean;   
   farm_address: string | null; 
 
-  //owner_id?: string
+  //owner_id?: string //fix(types): remove duplicate owner_id in SupabaseFarmListing
   is_organic: boolean
   is_accessible: boolean
   family_friendly: boolean
@@ -291,10 +291,6 @@ function mapToFarm(
     if (row.machine_work)    { tags_fi.push('Konetyö');             tags_en.push('Machinery work') }
   }
 
-  // const formatDate = (iso: string) => {
-  //   const d = new Date(iso)
-  //   return `${d.getDate()}.${d.getMonth() + 1}.`
-  // }
   const unitMap: Record<string, string> = { kg: 'kg', h: 'h', day: 'pv', piece: 'kpl', litre: 'L' }
 
   const sortedImages = [...images].sort((a, b) => a.sort_order - b.sort_order);
@@ -605,4 +601,22 @@ export async function deleteFarmListing(listingId: string) {
     console.error('[farmListings] Error deleting listing:', error.message);
     throw error;
   }
+}
+// ----- for landing page --------------
+export async function getRecentFarmListings(limit: number) {
+  const { data, error } = await supabase
+    .from('farm_listings')
+    .select(`
+      id,
+      type,
+      title,
+      created_at,
+      farms ( name, city )
+    `)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data;
 }
