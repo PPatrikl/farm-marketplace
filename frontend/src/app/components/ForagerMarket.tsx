@@ -11,8 +11,12 @@ import { ContactFormModal } from "./ContactFormModal";
 import { ForestListingDetail } from "./ForestListingDetail";
 
 /** ForagerMarket component displays a list of forest listings with filtering and search functionality. */
-export function ForagerMarket() {
-  const { tr, lang } = useLang();
+interface ForagerMarketProps {
+  /** Open this listing's detail page right after loading (e.g. clicked on Etusivu) */
+  initialListingId?: string | null;
+}
+
+export function ForagerMarket({ initialListingId }: ForagerMarketProps) {  const { tr, lang } = useLang();
   // User's position, shared app-wide (null until the user allows location)
   const { coords, status: locationStatus, requestLocation } = useLocation();
   const [listings, setListings] = useState<ForestListing[]>([]);// State to hold the fetched forest listings
@@ -27,7 +31,10 @@ export function ForagerMarket() {
       try {
         const data = await fetchForestListings();
         setListings(data);
-      } catch (err) {
+        if (initialListingId) {
+          const match = data.find((l) => l.id === initialListingId);
+          if (match) setSelected(match);
+        }      } catch (err) {
         setError("Ilmoitusten lataaminen epäonnistui. / Failed to load listings.");
       } finally {
         setLoading(false);

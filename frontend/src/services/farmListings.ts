@@ -605,14 +605,8 @@ export async function deleteFarmListing(listingId: string) {
 // ----- for landing page --------------
 export async function getRecentFarmListings(limit: number) {
   const { data, error } = await supabase
-    .from('farm_listings')
-    .select(`
-      id,
-      type,
-      title,
-      created_at,
-      farms ( name, city )
-    `)
+    .from('farm_listings_full')
+    .select('id, type, title, farm_name, farm_city, created_at, lat, lng')
     .eq('status', 'active')
     .order('created_at', { ascending: false })
     .limit(limit);

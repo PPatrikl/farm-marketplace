@@ -19,6 +19,8 @@ function AppInner() {
   const [page, setPage] = useState<Page>("landing");
   //const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
   const [selectedFarm, setSelectedFarm] = useState<FarmWithVerification | null>(null);
+    // Forest listing to open when going to Metsätori (e.g. clicked on Etusivu)
+  const [forestListingId, setForestListingId] = useState<string | null>(null);
 
   const [user, setUser] = useState<string | null>(null);
     useEffect(() => {
@@ -53,6 +55,7 @@ function AppInner() {
     if (["landing", "farmers", "foragers", "profile"].includes(target)) {
       setPage(target as Page);
       setSelectedFarm(null);
+      setForestListingId(null);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
@@ -72,6 +75,12 @@ function AppInner() {
     setSelectedFarm(farmWithVerification);
     setPage("detail");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+    const handleSelectForestListing = (id: string) => {
+    setForestListingId(id);
+    setPage("foragers");
+    window.scrollTo({ top: 0 });
   };
 
   const handleBackFromDetail = () => {
@@ -105,11 +114,12 @@ function AppInner() {
             onNavigate={handleNavigate}
             onOpenAuth={openAuth}
             onSelectFarmListing={handleSelectFarm}
+            onSelectForestListing={handleSelectForestListing}
             isLoggedIn={!!user}
           />
         )}
         {page === "farmers" && <FarmerFeed onSelectFarm={handleSelectFarm} />}
-        {page === "foragers" && <ForagerMarket />}
+        {page === "foragers" && <ForagerMarket initialListingId={forestListingId} />}
         {page === "profile" && <UserProfile />}
         {page === "detail" && selectedFarm && (
           <ListingDetail farm={selectedFarm} onBack={handleBackFromDetail} />
