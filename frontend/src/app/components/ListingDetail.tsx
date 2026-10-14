@@ -13,6 +13,9 @@ import { supabase } from "../../supabaseClient";
 import type { FarmWithVerification } from "../../services/farmListings";
 import { isoToDate, sameDay, formatLongDate, formatIsoDate } from "../../utils/dates";
 import { ContactFormModal } from "./ContactFormModal";
+import { LocationMap } from "./LocationMap";
+import { useLocation } from "../location/LocationContext";
+import { distanceTo, formatDistance } from "../../utils/distance";
 
 interface ListingDetailProps {
   farm: FarmWithVerification;
@@ -361,6 +364,8 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
 
   const isPicking = farm.type === "picking";
   const location = lang === "fi" ? farm.location_fi : farm.location_en;
+  const { coords } = useLocation();
+  const km = distanceTo(coords, farm.lat, farm.lng);
   const description = lang === "fi" ? farm.description_fi : farm.description_en;
   const tags = (lang === "fi" ? farm.tags_fi : farm.tags_en) ?? [];
   const produce = lang === "fi" ? farm.produce_fi : farm.produce_en;
@@ -463,7 +468,10 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span className="px-3 py-1 rounded-full text-xs font-medium" style={{ background: badgeStyle.bg, color: badgeStyle.text }}>{badgeLabel}</span>
-                <span className="flex items-center gap-1 text-muted-foreground text-xs"><MapPin className="w-3.5 h-3.5" />{location}</span>
+                <span className="flex items-center gap-1 text-muted-foreground text-xs">
+                  <MapPin className="w-3.5 h-3.5" />{location}
+                  {km != null && <span className="text-foreground font-medium">· {formatDistance(km)}</span>}
+                </span>
                 <span className="flex items-center gap-1 text-muted-foreground text-xs">
                   <Star className="w-3.5 h-3.5 text-yellow-500" fill="currentColor" />
                   <span className="text-foreground font-medium">{farm.rating}</span>
@@ -535,24 +543,14 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
               </section>
             )}
 
-            <section>
+              <section>
               <h2 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500 }} className="text-foreground text-xl mb-4">{tr("det_section_location")}</h2>
-              <div className="relative rounded-2xl overflow-hidden border border-border" style={{ height: 200, background: "#DDD8CE" }}>
-                <img src="https://images.unsplash.com/photo-1668090147256-10de5a40b9fe?w=800&h=200&fit=crop&auto=format" alt="Farm location" className="w-full h-full object-cover opacity-40" />
-                <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, #EEF4E9 0%, transparent 40%, transparent 60%, #EEF4E9 100%)" }} />
-                <svg className="absolute inset-0 w-full h-full opacity-10">
-                  {[1, 2, 3].map(i => <line key={`h${i}`} x1="0" y1={`${i * 25}%`} x2="100%" y2={`${i * 25}%`} stroke="#2A5012" strokeWidth="1" />)}
-                  {[1, 2, 3, 4, 5, 6, 7].map(i => <line key={`v${i}`} x1={`${i * 12.5}%`} y1="0" x2={`${i * 12.5}%`} y2="100%" stroke="#2A5012" strokeWidth="1" />)}
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-primary border-2 border-white shadow-lg relative">
-                    <div className="absolute inset-0 rounded-full bg-primary animate-ping opacity-30" />
-                  </div>
-                  <div className="bg-foreground text-background text-xs px-3 py-1.5 rounded-full shadow-lg font-medium">
-                    {farm.address ? `${farm.address}, ` : ""}{farm.city} · {lang === "fi" ? farm.region_fi : farm.region_en}
-                  </div>
-                </div>
-              </div>
+              <LocationMap
+                lat={farm.lat}
+                lng={farm.lng}
+                label={`${farm.address ? `${farm.address}, ` : ""}${farm.city} · ${lang === "fi" ? farm.region_fi : farm.region_en}`}
+                lang={lang}
+              />
             </section>
           </div>
 

@@ -26,6 +26,8 @@ export interface ForestListing {
   primary_image_url: string | null
   created_at: string
   status: string
+  lat: number | null
+  lng: number | null
 }
 
 /** Fetch all active forest listings from Supabase */
@@ -215,4 +217,3 @@ export async function deleteForestListing(listingId: string) {
     throw error;
   }
 }
-

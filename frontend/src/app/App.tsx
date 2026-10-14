@@ -10,6 +10,7 @@ import { AuthModal } from "./components/AuthModal";
 import type { Farm } from "./data/farms";
 import type { FarmWithVerification } from "../services/farmListings";
 import {supabase} from "../supabaseClient";
+import { LocationProvider } from "./location/LocationContext";
 
 type Page = "landing" | "farmers" | "foragers" | "profile" | "detail";
 
@@ -125,7 +126,9 @@ function AppInner() {
 export default function App() {
   return (
     <LanguageProvider>
-      <AppInner />
+      <LocationProvider>
+        <AppInner />
+      </LocationProvider>
     </LanguageProvider>
   );
 }
