@@ -294,7 +294,9 @@ function mapToFarm(
   const unitMap: Record<string, string> = { kg: 'kg', h: 'h', day: 'pv', piece: 'kpl', litre: 'L' }
 
   const sortedImages = [...images].sort((a, b) => a.sort_order - b.sort_order);
-  const primaryFromTable = sortedImages.find((i) => i.is_primary)?.url;
+  // Primary image, or the first one if none is marked primary
+  // (images added while editing are saved with is_primary = false)
+  const primaryFromTable = (sortedImages.find((i) => i.is_primary) ?? sortedImages[0])?.url;
   const heroImage = primaryFromTable ?? row.primary_image_url ?? FALLBACK_IMAGE;
   const galleryImages = sortedImages.map((i) => i.url).filter((url) => url !== heroImage);
 
