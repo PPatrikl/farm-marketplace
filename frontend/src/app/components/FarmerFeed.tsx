@@ -1,8 +1,18 @@
-import { MapPin, Calendar, Star, Filter, SlidersHorizontal, ChevronDown } from "lucide-react";
+import { MapPin, Calendar, Star, Filter, SlidersHorizontal, ChevronDown, Navigation } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLang } from "../i18n/LanguageContext";
 import { type Farm } from "../data/farms";
-import { fetchFarmListings } from "../../services/farmListings";
+import { fetchFarmListings, type FarmWithVerification } from "../../services/farmListings";
+import { useLocation } from "../location/LocationContext";
+import { distanceTo, formatDistance } from "../../utils/distance";
+
+// "Lähellä" = within this many km of the user
+const NEARBY_KM = 50;
+
+// Positions in sortOptions below
+const SORT_RELEVANT = 0;
+const SORT_CLOSEST = 1;
+const SORT_RATED = 2;
 
 interface FarmerFeedProps {
   onSelectFarm?: (farm: Farm) => void;
@@ -10,11 +20,15 @@ interface FarmerFeedProps {
 
 export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
   const { tr, lang } = useLang();
+  const fi = lang === "fi";
+  const { coords, status: locationStatus, requestLocation } = useLocation();
+
   const [activeFilter, setActiveFilter] = useState("all");
-  const [activeSortIndex, setActiveSortIndex] = useState(0);
+  const [activeSortIndex, setActiveSortIndex] = useState(SORT_RELEVANT);
   const [showSort, setShowSort] = useState(false);
 
-  const [farms, setFarms] = useState<Farm[]>([]);
+  // FarmWithVerification (not plain Farm) so TypeScript knows about lat/lng
+  const [farms, setFarms] = useState<FarmWithVerification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +49,9 @@ export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
     loadListings();
   }, []);
 
+  /** km from the user to this farm, or null if we don't know */
+  const kmTo = (f: FarmWithVerification) => distanceTo(coords, f.lat, f.lng);
+
   const filterChips = [
     { id: "all", label: tr("filter_all") },
     { id: "picking", label: tr("filter_picking") },
@@ -50,14 +67,39 @@ export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
     tr("sort_latest"),
   ];
 
+  // "Lähellä" and "Lähimmät" need the user's position → ask on click
+  const handleFilterClick = (id: string) => {
+    if (id === "nearby" && !coords) requestLocation();
+    setActiveFilter(id);
+  };
+
+  const handleSortClick = (i: number) => {
+    if (i === SORT_CLOSEST && !coords) requestLocation();
+    setActiveSortIndex(i);
+    setShowSort(false);
+  };
+
   const filtered = farms.filter((f) => {
     if (activeFilter === "all") return true;
     if (activeFilter === "picking") return f.type === "picking";
     if (activeFilter === "jobs") return f.type === "job";
     if (activeFilter === "organic") return f.tags_en.some((t) => t.toLowerCase().includes("organic"));
-    if (activeFilter === "nearby") return parseInt(f.distance) < 50;
+    if (activeFilter === "nearby") {
+      const km = kmTo(f);
+      return km != null && km <= NEARBY_KM;
+    }
     return true;
   });
+
+  // .sort() changes the array in place, so sort a copy
+  const sorted = [...filtered];
+  if (activeSortIndex === SORT_CLOSEST) {
+    // Listings without coordinates go to the end
+    sorted.sort((a, b) => (kmTo(a) ?? Infinity) - (kmTo(b) ?? Infinity));
+  } else if (activeSortIndex === SORT_RATED) {
+    sorted.sort((a, b) => b.rating - a.rating);
+  }
+  // "Relevant" and "Latest" (index 0 and 3): keep the database order (newest first)
 
   return (
     <div style={{ fontFamily: "'Inter', sans-serif" }} className="min-h-screen bg-background">
@@ -67,18 +109,18 @@ export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
             {tr("farmer_title")}
           </h1>
           <p className="text-muted-foreground text-sm">
-            {loading ? "..." : filtered.length} {tr("farmer_subtitle_prefix")} · {tr("farmer_subtitle_suffix")}
+            {loading ? "..." : sorted.length} {tr("farmer_subtitle_prefix")} · {tr("farmer_subtitle_suffix")}
           </p>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex items-center gap-3 mb-8 flex-wrap">
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap flex-1">
             {filterChips.map((chip) => (
               <button
                 key={chip.id}
-                onClick={() => setActiveFilter(chip.id)}
+                onClick={() => handleFilterClick(chip.id)}
                 className={`px-3.5 py-1.5 rounded-full text-sm transition-all border ${
                   activeFilter === chip.id
                     ? "bg-primary text-primary-foreground border-primary"
@@ -108,7 +150,7 @@ export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
                   {sortOptions.map((opt, i) => (
                     <button
                       key={opt}
-                      onClick={() => { setActiveSortIndex(i); setShowSort(false); }}
+                      onClick={() => handleSortClick(i)}
                       className={`w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition-colors ${
                         i === activeSortIndex ? "text-primary font-medium" : "text-foreground"
                       }`}
@@ -121,6 +163,36 @@ export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
             </div>
           </div>
         </div>
+
+        {/* Location status bar — only while we don't have the user's position */}
+        {!coords && (
+          <div className="flex flex-wrap items-center gap-3 mb-6 text-sm text-muted-foreground">
+            {locationStatus === "loading" && <span>{fi ? "Haetaan sijaintia…" : "Getting your location…"}</span>}
+            {locationStatus === "denied" && (
+              <span>
+                {fi
+                  ? "Sijainnin käyttö on estetty. Salli se selaimen asetuksista nähdäksesi etäisyydet."
+                  : "Location access is blocked. Allow it in your browser settings to see distances."}
+              </span>
+            )}
+            {locationStatus === "unavailable" && (
+              <span>{fi ? "Sijaintia ei saatu selville." : "Your location could not be determined."}</span>
+            )}
+            {locationStatus === "idle" && (
+              <>
+                <span>{fi ? "Näe, kuinka kaukana tilat ovat." : "See how far away the farms are."}</span>
+                <button
+                  onClick={requestLocation}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card text-foreground hover:border-primary/40 transition-colors"
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  {fi ? "Käytä sijaintiani" : "Use my location"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {coords && <div className="mb-6" />}
 
         {loading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -150,18 +222,27 @@ export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
           </div>
         )}
 
-        {!loading && !error && filtered.length === 0 && (
+        {!loading && !error && sorted.length === 0 && (
           <div className="text-center py-16">
             <p className="text-muted-foreground text-sm">
-              Ei ilmoituksia tällä hetkellä. / No listings at the moment.
+              {activeFilter === "nearby" && coords
+                ? (fi ? `Ei ilmoituksia ${NEARBY_KM} km:n säteellä.` : `No listings within ${NEARBY_KM} km.`)
+                : "Ei ilmoituksia tällä hetkellä. / No listings at the moment."}
             </p>
           </div>
         )}
 
-        {!loading && !error && filtered.length > 0 && (
+        {!loading && !error && sorted.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filtered.map((farm) => (
-              <FarmCard key={farm.id} farm={farm} lang={lang} tr={tr} onSelect={() => onSelectFarm?.(farm)} />
+            {sorted.map((farm) => (
+              <FarmCard
+                key={farm.id}
+                farm={farm}
+                lang={lang}
+                tr={tr}
+                onSelect={() => onSelectFarm?.(farm)}
+                distanceLabel={coords ? formatDistance(kmTo(farm)) : null}
+              />
             ))}
           </div>
         )}
@@ -171,18 +252,21 @@ export function FarmerFeed({ onSelectFarm }: FarmerFeedProps) {
 }
 
 // ════════════════════════════════════════════════════════════
-// FarmCard 
+// FarmCard
 // ════════════════════════════════════════════════════════════
 function FarmCard({
   farm,
   lang,
   tr,
   onSelect,
+  distanceLabel,
 }: {
   farm: Farm;
   lang: string;
   tr: (k: any) => string;
   onSelect: () => void;
+  /** "12 km" / "— km", or null when we don't know the user's location */
+  distanceLabel: string | null;
 }) {
   const isPicking = farm.type === "picking";
   const badgeColor = isPicking ? { bg: "#EDF4E8", text: "#2A5012" } : { bg: "#FAEAEC", text: "#B8293A" };
@@ -209,10 +293,12 @@ function FarmCard({
         >
           {badgeLabel}
         </div>
-        <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
-          <MapPin className="w-3 h-3" />
-          {farm.distance}
-        </div>
+        {distanceLabel && (
+          <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+            <MapPin className="w-3 h-3" />
+            {distanceLabel}
+          </div>
+        )}
       </div>
 
       <div className="p-4">
