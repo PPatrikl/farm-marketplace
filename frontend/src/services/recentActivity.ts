@@ -12,6 +12,8 @@ export interface RecentActivityItem {
   timeAgoFi: string;
   timeAgoEn: string;
   color: string;
+  lat: number | null;
+  lng: number | null;
 }
 
 
@@ -26,12 +28,14 @@ function mapFarmListing(row: any): RecentActivityItem {
     id: row.id,
     kind: 'farm',
     title: row.title,
-    authorName: row.farms?.name ?? '',
-    city: row.farms?.city ?? null,
+    authorName: row.farm_name ?? '',
+    city: row.farm_city ?? null,
     createdAt: row.created_at,
     timeAgoFi: formatTimeAgo(row.created_at, 'fi'),
     timeAgoEn: formatTimeAgo(row.created_at, 'en'),
     color: row.type === 'kausityo' ? '#B8293A' : '#2A5012',
+    lat: row.lat ?? null,
+    lng: row.lng ?? null,
   };
 }
 
@@ -40,12 +44,14 @@ function mapForestListing(row: any): RecentActivityItem {
     id: row.id,
     kind: 'forest',
     title: row.product_name,
-    authorName: row.profiles?.full_name ?? '',
+    authorName: row.seller_name ?? '',
     city: row.city,
     createdAt: row.created_at,
     timeAgoFi: formatTimeAgo(row.created_at, 'fi'),
     timeAgoEn: formatTimeAgo(row.created_at, 'en'),
     color: FOREST_COLORS[row.product_type] ?? '#4A7C2F',
+    lat: row.lat ?? null,
+    lng: row.lng ?? null,
   };
 }
 

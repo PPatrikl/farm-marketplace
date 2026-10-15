@@ -9,6 +9,8 @@ export interface SearchResult {
   subtitle: string;
   city: string;
   color: string;
+  lat: number | null;
+  lng: number | null;
 }
 
 // Characters that break .or() syntax or act as wildcards in LIKE
@@ -26,7 +28,7 @@ export async function searchListings(rawQuery: string, limitPerKind = 4): Promis
   const [farmRes, forestRes] = await Promise.all([
     supabase
       .from('farm_listings_full')
-      .select('id, type, title, farm_name, farm_city')
+      .select('id, type, title, farm_name, farm_city, lat, lng')
       .eq('status', 'active')
       .gte('date_end', today)
       .or(`title.ilike.${pattern},crop_type.ilike.${pattern},farm_name.ilike.${pattern},farm_city.ilike.${pattern}`)
@@ -34,7 +36,7 @@ export async function searchListings(rawQuery: string, limitPerKind = 4): Promis
       .limit(limitPerKind),
     supabase
       .from('forest_listings_full')
-      .select('id, product_type, product_name, city, seller_name')
+      .select('id, product_type, product_name, city, seller_name, lat, lng')
       .eq('status', 'active')
       .or(`product_name.ilike.${pattern},city.ilike.${pattern},region.ilike.${pattern}`)
       .order('created_at', { ascending: false })
@@ -52,6 +54,8 @@ export async function searchListings(rawQuery: string, limitPerKind = 4): Promis
     subtitle: r.farm_name ?? '',
     city: r.farm_city ?? '',
     color: r.type === 'kausityo' ? '#B8293A' : '#2A5012',
+    lat: r.lat ?? null,
+    lng: r.lng ?? null,
   }));
 
   const forest = (forestRes.data ?? []).map((r: any): SearchResult => ({
@@ -62,6 +66,8 @@ export async function searchListings(rawQuery: string, limitPerKind = 4): Promis
     subtitle: r.seller_name ?? '',
     city: r.city ?? '',
     color: FOREST_COLORS[r.product_type] ?? '#4A7C2F',
+    lat: r.lat ?? null,
+    lng: r.lng ?? null,
   }));
 
   return [...farms, ...forest];

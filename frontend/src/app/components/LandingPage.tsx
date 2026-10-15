@@ -10,6 +10,9 @@ import type { FarmWithVerification } from "../../services/farmListings";
 
 import { getLandingStats, getCategoryCounts, type LandingStats, type CategoryCounts } from "../../services/stats";
 import { searchListings, type SearchResult } from "../../services/search";
+import { useLocation } from "../location/LocationContext";
+import { distanceTo, formatDistance } from "../../utils/distance";
+import { NearbyMap } from "./NearbyMap";
 
 const CATEGORY_LABEL_KEY = {
   picking: "landing_map_legend_farm",   // "Tila"
@@ -21,21 +24,29 @@ interface LandingPageProps {
   onNavigate: (page: string) => void;
   onOpenAuth: (tab: "login" | "register") => void;
   onSelectFarmListing: (farm: FarmWithVerification) => void; 
+  onSelectForestListing: (id: string) => void;
   isLoggedIn: boolean;
 }
 
-const mapMarkers = [
-  { id: 1, x: 28, y: 35, type: "farm", label_fi: "Virtanen Tila", label_en: "Virtanen Tila" },
-  { id: 2, x: 52, y: 55, type: "forager", label_fi: "Kanttarellit", label_en: "Chanterelles" },
-  { id: 3, x: 42, y: 42, type: "job", label_fi: "Satotyö", label_en: "Harvest job" },
-  { id: 4, x: 65, y: 30, type: "forager", label_fi: "Mustikkaa", label_en: "Blueberries" },
-  { id: 5, x: 20, y: 65, type: "farm", label_fi: "Koskela Tila", label_en: "Koskela Farm" },
-  { id: 6, x: 75, y: 68, type: "forager", label_fi: "Puolukoita", label_en: "Lingonberries" },
-  { id: 7, x: 35, y: 78, type: "job", label_fi: "Vadelmanpoiminta", label_en: "Raspberry picking" },
-];
 
-export function LandingPage({ onNavigate, onOpenAuth, onSelectFarmListing, isLoggedIn }: LandingPageProps) {
+
+export function LandingPage({ onNavigate, onOpenAuth, onSelectFarmListing, onSelectForestListing, isLoggedIn }: LandingPageProps) {
   const { tr, lang } = useLang();
+  const fi = lang === "fi";
+  const { coords, status: locationStatus, requestLocation } = useLocation();
+
+  /** "· 12 km", or "" if we don't know the user's or the listing's position */
+  const kmLabel = (lat: number | null, lng: number | null) => {
+    const km = distanceTo(coords, lat, lng);
+    return km == null ? "" : formatDistance(km);
+  };
+
+  const locationButtonLabel =
+    coords ? (fi ? "Sijaintisi" : "Your location")
+    : locationStatus === "loading" ? (fi ? "Haetaan…" : "Locating…")
+    : locationStatus === "denied" ? (fi ? "Sijainti estetty" : "Location blocked")
+    : (fi ? "Käytä sijaintia" : "Use location");
+
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocus, setSearchFocus] = useState(false);
   
@@ -45,8 +56,7 @@ export function LandingPage({ onNavigate, onOpenAuth, onSelectFarmListing, isLog
 
   async function openListing(item: { id: string; kind: "farm" | "forest" }) {
     if (item.kind === "forest") {
-      // Temporary: There is no detail page for Forest listings yet
-      onNavigate("foragers");
+      onSelectForestListing(item.id);
       return;
     }
 
@@ -223,10 +233,17 @@ export function LandingPage({ onNavigate, onOpenAuth, onSelectFarmListing, isLog
                   style={{ fontFamily: "'Inter', sans-serif" }}
                 />
                 <div className="flex items-center gap-2 pr-2">
-                  <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">
+                    <button
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={requestLocation}
+                    disabled={locationStatus === "loading"}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm hover:bg-secondary transition-colors ${
+                      coords ? "text-primary font-medium" : "text-muted-foreground"
+                    }`}>
                     <MapPin className="w-4 h-4" />
-                    <span>{tr("landing_location")}</span>
+                    <span>{locationButtonLabel}</span>
                   </button>
+
                   <button
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setSearchOpen(true)}
@@ -261,8 +278,7 @@ export function LandingPage({ onNavigate, onOpenAuth, onSelectFarmListing, isLog
                         <div className="flex-1 min-w-0">
                           <p className="text-foreground text-sm font-medium truncate">{r.title}</p>
                           <p className="text-muted-foreground text-xs truncate">
-                            {[r.subtitle, r.city].filter(Boolean).join(" · ")}
-                          </p>
+                            {[r.subtitle, r.city, kmLabel(r.lat, r.lng)].filter(Boolean).join(" · ")}                          </p>
                         </div>
                         <span className="text-xs text-muted-foreground flex-shrink-0">
                           {tr(CATEGORY_LABEL_KEY[r.category])}
@@ -373,49 +389,7 @@ export function LandingPage({ onNavigate, onOpenAuth, onSelectFarmListing, isLog
                 })}
               </div>
             </div>
-            <div className="relative" style={{ height: 340 }}>
-              <img
-                src="https://images.unsplash.com/photo-1668090147256-10de5a40b9fe?w=800&h=340&fit=crop&auto=format"
-                alt="Finnish farmland aerial view"
-                className="w-full h-full object-cover opacity-30"
-              />
-              <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, #EEF4E9 0%, transparent 30%, transparent 70%, #EEF4E9 100%)" }} />
-              <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.15 }}>
-                {[0, 1, 2, 3, 4, 5].map((i) => (
-                  <line key={`h${i}`} x1="0" y1={`${(i / 5) * 100}%`} x2="100%" y2={`${(i / 5) * 100}%`} stroke="#2A5012" strokeWidth="1" />
-                ))}
-                {[0, 1, 2, 3, 4, 5].map((i) => (
-                  <line key={`v${i}`} x1={`${(i / 5) * 100}%`} y1="0" x2={`${(i / 5) * 100}%`} y2="100%" stroke="#2A5012" strokeWidth="1" />
-                ))}
-              </svg>
-              {mapMarkers.map((marker) => {
-                const color = marker.type === "farm" ? "#2A5012" : marker.type === "job" ? "#B8293A" : "#D4A853";
-                const label = lang === "fi" ? marker.label_fi : marker.label_en;
-                return (
-                  <div
-                    key={marker.id}
-                    className="absolute group cursor-pointer"
-                    style={{ left: `${marker.x}%`, top: `${marker.y}%`, transform: "translate(-50%, -50%)" }}
-                  >
-                    <div
-                      className="w-4 h-4 rounded-full border-2 border-white shadow-md transition-transform group-hover:scale-125"
-                      style={{ background: color }}
-                    />
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 bg-foreground text-background text-xs px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
-                      {label}
-                    </div>
-                  </div>
-                );
-              })}
-              <div className="absolute" style={{ left: "50%", top: "50%", transform: "translate(-50%, -50%)" }}>
-                <div className="w-5 h-5 rounded-full bg-primary border-2 border-white shadow-lg">
-                  <div className="absolute inset-0 rounded-full bg-primary animate-ping opacity-40" />
-                </div>
-                <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-foreground text-background text-xs px-2 py-1 rounded-md whitespace-nowrap shadow-lg">
-                  {tr("landing_map_you")}
-                </div>
-              </div>
-            </div>
+                        <NearbyMap lang={lang} onOpen={openListing} height={420} />
           </div>
 
           {/* Recent activity */}
@@ -452,8 +426,10 @@ export function LandingPage({ onNavigate, onOpenAuth, onSelectFarmListing, isLog
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <MapPin className="w-3 h-3" />
                           {item.city}
-                        </span>
-                      </div>
+                          {kmLabel(item.lat, item.lng) && (
+                            <span className="text-foreground font-medium">· {kmLabel(item.lat, item.lng)}</span>
+                          )}
+                        </span>                      </div>
                     </div>
                     <span className="text-xs text-muted-foreground flex-shrink-0">
                       {lang === "fi" ? item.timeAgoFi : item.timeAgoEn}

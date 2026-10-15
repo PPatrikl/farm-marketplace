@@ -218,15 +218,8 @@ export async function deleteForestListing(listingId: string) {
 // --  for landing page -----------
 export async function getRecentForestListings(limit: number) {
   const { data, error } = await supabase
-    .from('forest_listings')
-    .select(`
-      id,
-      product_type,
-      product_name,
-      city,
-      created_at,
-      profiles ( full_name )
-    `)
+    .from('forest_listings_full')
+    .select('id, product_type, product_name, city, created_at, seller_name, lat, lng')
     .eq('status', 'active')
     .order('created_at', { ascending: false })
     .limit(limit);
