@@ -1,5 +1,6 @@
 import { MapPin, Phone, MessageCircle, Filter, Scale, Clock, Search } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router";
 import { useLang } from "../i18n/LanguageContext";
 import { useLocation } from "../location/LocationContext";
 import { distanceTo, formatDistance } from "../../utils/distance";
@@ -11,12 +12,8 @@ import { ContactFormModal } from "./ContactFormModal";
 import { ForestListingDetail } from "./ForestListingDetail";
 
 /** ForagerMarket component displays a list of forest listings with filtering and search functionality. */
-interface ForagerMarketProps {
-  /** Open this listing's detail page right after loading (e.g. clicked on Etusivu) */
-  initialListingId?: string | null;
-}
-
-export function ForagerMarket({ initialListingId }: ForagerMarketProps) {  const { tr, lang } = useLang();
+export function ForagerMarket() {
+  const { tr, lang } = useLang();
   // User's position, shared app-wide (null until the user allows location)
   const { coords, status: locationStatus, requestLocation } = useLocation();
   const [listings, setListings] = useState<ForestListing[]>([]);// State to hold the fetched forest listings
@@ -30,11 +27,8 @@ export function ForagerMarket({ initialListingId }: ForagerMarketProps) {  const
       setError(null);
       try {
         const data = await fetchForestListings();
-        setListings(data);
-        if (initialListingId) {
-          const match = data.find((l) => l.id === initialListingId);
-          if (match) setSelected(match);
-        }      } catch (err) {
+                setListings(data);
+          } catch (err) {
         setError("Ilmoitusten lataaminen epäonnistui. / Failed to load listings.");
       } finally {
         setLoading(false);
@@ -49,7 +43,10 @@ export function ForagerMarket({ initialListingId }: ForagerMarketProps) {  const
 
   const [contactTarget, setContactTarget] = useState<ForestListing | null>(null);
   // The listing whose detail page is open (null = show the grid)
-  const [selected, setSelected] = useState<ForestListing | null>(null);
+    // The open listing now comes from the URL: /metsatori/:id
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const selected = id ? listings.find((l) => l.id === id) ?? null : null;
 
   const handleContactSuccess = () => {
     if (contactTarget) setContactedId(contactTarget.id);
@@ -101,7 +98,7 @@ export function ForagerMarket({ initialListingId }: ForagerMarketProps) {  const
           listing={selected}
           lang={lang}
           contacted={contactedId === selected.id}
-          onBack={() => setSelected(null)}
+          onBack={() => navigate("/metsatori")}
           onContact={() => setContactTarget(selected)}
           distanceLabel={formatDistance(kmTo(selected))}
         />
@@ -192,7 +189,7 @@ export function ForagerMarket({ initialListingId }: ForagerMarketProps) {  const
                 tr={tr}
                 contacted={contactedId === listing.id}
                 onContact={() => setContactTarget(listing)}
-                onSelect={() => { setSelected(listing); window.scrollTo({ top: 0 }); }}
+                onSelect={() => navigate(`/metsatori/${listing.id}`)}
                 distanceLabel={coords ? formatDistance(kmTo(listing)) : null}
               />
             ))}
