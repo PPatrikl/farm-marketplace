@@ -5,18 +5,27 @@ import type { ListingImageRecord } from "../../../services/listingImages";
 
 export type TrFn = ReturnType<typeof useLang>['tr'];
 
+// 19 Finnish regions 
 export const REGIONS = [
-  { code: "uusimaa", fi: "Uusimaa", en: "Uusimaa" },
-  { code: "pirkanmaa", fi: "Pirkanmaa", en: "Pirkanmaa" },
-  { code: "varsinais-suomi", fi: "Varsinais-Suomi", en: "Varsinais-Suomi" },
-  { code: "kanta-hame", fi: "Kanta-Häme", en: "Kanta-Häme" },
-  { code: "paijat-hame", fi: "Päijät-Häme", en: "Päijät-Häme" },
-  { code: "kymenlaakso", fi: "Kymenlaakso", en: "Kymenlaakso" },
+  { code: "ahvenanmaa", fi: "Ahvenanmaa", en: "Åland" },
   { code: "etela-karjala", fi: "Etelä-Karjala", en: "South Karelia" },
-  { code: "pohjois-karjala", fi: "Pohjois-Karjala", en: "North Karelia" },
+  { code: "etela-pohjanmaa", fi: "Etelä-Pohjanmaa", en: "South Ostrobothnia" },
+  { code: "etela-savo", fi: "Etelä-Savo", en: "South Savo" },
+  { code: "kainuu", fi: "Kainuu", en: "Kainuu" },
+  { code: "kanta-hame", fi: "Kanta-Häme", en: "Kanta-Häme" },
+  { code: "keski-pohjanmaa", fi: "Keski-Pohjanmaa", en: "Central Ostrobothnia" },
   { code: "keski-suomi", fi: "Keski-Suomi", en: "Central Finland" },
-  { code: "pohjois-pohjanmaa", fi: "Pohjois-Pohjanmaa", en: "Northern Ostrobothnia" },
+  { code: "kymenlaakso", fi: "Kymenlaakso", en: "Kymenlaakso" },
   { code: "lappi", fi: "Lappi", en: "Lapland" },
+  { code: "pirkanmaa", fi: "Pirkanmaa", en: "Pirkanmaa" },
+  { code: "pohjanmaa", fi: "Pohjanmaa", en: "Ostrobothnia" },
+  { code: "pohjois-karjala", fi: "Pohjois-Karjala", en: "North Karelia" },
+  { code: "pohjois-pohjanmaa", fi: "Pohjois-Pohjanmaa", en: "North Ostrobothnia" },
+  { code: "pohjois-savo", fi: "Pohjois-Savo", en: "North Savo" },
+  { code: "paijat-hame", fi: "Päijät-Häme", en: "Päijät-Häme" },
+  { code: "satakunta", fi: "Satakunta", en: "Satakunta" },
+  { code: "uusimaa", fi: "Uusimaa", en: "Uusimaa" },
+  { code: "varsinais-suomi", fi: "Varsinais-Suomi", en: "Southwest Finland" },
 ];
 
 export const UNIT_LABEL_KEYS: Record<PriceUnit, "form_unit_kg" | "form_unit_L" | "form_unit_h" | "form_unit_day" | "form_unit_lot"> = {
@@ -171,7 +180,7 @@ export function RegionSelect({ label, value, onChange, tr, lang }: {
       >
         <option value="">{tr("form_placeholder_region")}</option>
         {REGIONS.map((r) => (
-          <option key={r.code} value={r.code}>{lang === "fi" ? r.fi : r.en}</option>
+          <option key={r.code} value={r.fi}>{lang === "fi" ? r.fi : r.en}</option>
         ))}
       </select>
     </div>

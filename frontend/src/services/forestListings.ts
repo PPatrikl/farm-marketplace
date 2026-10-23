@@ -78,6 +78,7 @@ export async function fetchMushroomListings(): Promise<ForestListing[]> {
 }
 
 import type { UploadedImage } from './storage'; 
+import { geocodeFirst, toPostgisPoint } from '../utils/geocode';
 
 export interface CreateForestListingInput {
   seller_id: string;
@@ -95,6 +96,8 @@ export interface CreateForestListingInput {
 }
 
 export async function createForestListing(input: CreateForestListingInput) {
+    // Coordinates of the town ("Lohja, Uusimaa" first, then just "Lohja")
+  const coords = await geocodeFirst([`${input.city}, ${input.region}`, input.city]);
   const { data, error } = await supabase
     .from('forest_listings')
     .insert([
@@ -111,6 +114,7 @@ export async function createForestListing(input: CreateForestListingInput) {
         delivery_available: input.delivery_available ?? false,
         pickup_only: input.pickup_only ?? true,
         status: 'active',
+        location: coords ? toPostgisPoint(coords) : null,
       },
     ])
     .select()
@@ -169,6 +173,24 @@ export async function updateForestListing(listingId: string, input: UpdateForest
   if (input.description !== undefined) patch.description = input.description;
   if (input.delivery_available !== undefined) patch.delivery_available = input.delivery_available;
   if (input.pickup_only !== undefined) patch.pickup_only = input.pickup_only;
+  
+  // Re-geocode only when the town changed (or the listing has no location yet)
+  if (input.city !== undefined || input.region !== undefined) {
+    const { data: current } = await supabase
+      .from('forest_listings')
+      .select('city, region, location')
+      .eq('id', listingId)
+      .maybeSingle();
+
+    const city = input.city ?? current?.city ?? '';
+    const region = input.region ?? current?.region ?? '';
+    const changed = city !== (current?.city ?? '') || region !== (current?.region ?? '');
+
+    if (changed || !current?.location) {
+      const coords = await geocodeFirst([`${city}, ${region}`, city]);
+      patch.location = coords ? toPostgisPoint(coords) : null;
+    }
+  }
 
   const { data, error } = await supabase
     .from('forest_listings')

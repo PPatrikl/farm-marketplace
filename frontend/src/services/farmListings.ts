@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient'
 import type { Farm } from '../app/data/farms'
 import type { UploadedImage } from './storage'
 import { formatShortDate } from '../utils/dates';
+import { geocodeFirst, toPostgisPoint } from '../utils/geocode';
 
 // ── Farm amenities (all NOT NULL in DB) ───────────────────────
 export interface FarmAmenities {
@@ -61,6 +62,13 @@ export async function fetchOwnFarm(ownerId: string): Promise<FarmRecord | null> 
 }
 
 export async function createFarm(ownerId: string, input: UpsertFarmInput): Promise<FarmRecord> {
+  // Coordinates for the map and distances: street address first, town as fallback.
+  // null if not found — the farm is still saved.
+  const coords = await geocodeFirst([
+    input.address ? `${input.address}, ${input.city}` : null,
+    input.city,
+  ]);
+
   const { data, error } = await supabase
     .from('farms')
     .insert([{
@@ -73,6 +81,7 @@ export async function createFarm(ownerId: string, input: UpsertFarmInput): Promi
       ...input.amenities,
       review_count: 0,
       is_active: true,
+      location: coords ? toPostgisPoint(coords) : null,
     }])
     .select()
     .single();
@@ -93,6 +102,25 @@ export async function updateFarm(farmId: string, input: Partial<UpsertFarmInput>
   if (input.region !== undefined) patch.region = input.region;
   if (input.address !== undefined) patch.address = input.address;
   if (input.amenities) Object.assign(patch, input.amenities);
+  
+  // Re-geocode only when the address or town changed (or the farm has no location yet)
+  if (input.city !== undefined || input.address !== undefined) {
+    const { data: current } = await supabase
+      .from('farms')
+      .select('city, address, location')
+      .eq('id', farmId)
+      .maybeSingle();
+
+    const city = input.city ?? current?.city ?? '';
+    const address = input.address ?? current?.address ?? '';
+    const changed = city !== (current?.city ?? '') || address !== (current?.address ?? '');
+
+    if (changed || !current?.location) {
+      const coords = await geocodeFirst([address ? `${address}, ${city}` : null, city]);
+      // If nothing was found, clear it: no pin is better than a pin in the old town
+      patch.location = coords ? toPostgisPoint(coords) : null;
+    }
+  }
 
   const { data, error } = await supabase
     .from('farms')
