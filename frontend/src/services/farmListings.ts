@@ -6,7 +6,7 @@ import type { UploadedImage } from './storage'
 import { formatShortDate } from '../utils/dates';
 import { geocodeFirst, toPostgisPoint } from '../utils/geocode';
 
-// ── Farm amenities (all NOT NULL in DB) ───────────────────────
+// ── Farm amenities ───
 export interface FarmAmenities {
   is_organic: boolean;
   is_accessible: boolean;
@@ -44,7 +44,7 @@ export interface UpsertFarmInput {
   amenities: FarmAmenities;
 }
 
-// ── Farm CRUD ──────────────────────────────────────────────────
+// ── Farm CRUD ────
 
 /** A user owns at most one farm — looked up via farms.owner_id, never profiles.farm_id. */
 export async function fetchOwnFarm(ownerId: string): Promise<FarmRecord | null> {
@@ -117,7 +117,7 @@ export async function updateFarm(farmId: string, input: Partial<UpsertFarmInput>
 
     if (changed || !current?.location) {
       const coords = await geocodeFirst([address ? `${address}, ${city}` : null, city]);
-      // If nothing was found, clear it: no pin is better than a pin in the old town
+      // If nothing was found, clear it
       patch.location = coords ? toPostgisPoint(coords) : null;
     }
   }
@@ -136,7 +136,7 @@ export async function updateFarm(farmId: string, input: Partial<UpsertFarmInput>
   return data;
 }
 
-// ── Listing status ──────────────────────────────────────────────
+// ── Listing status ────
 export type ListingStatus = 'active' | 'closed' | 'draft' | 'expired';
 
 export function getEffectiveStatus(row: { status: string; date_end: string }): ListingStatus {
@@ -172,7 +172,7 @@ export async function setFarmListingStatus(listingId: string, status: 'active' |
   return data;
 }
 
-// ── Types from Supabase (farm_listings_full view) ────────────
+// ── Types from Supabase (farm_listings_full view) ────
 interface SupabaseFarmListing {
   id: string
   type: 'itsepoiminta' | 'kausityo'
@@ -197,7 +197,6 @@ interface SupabaseFarmListing {
   booking_required: boolean;   
   farm_address: string | null; 
 
-  //owner_id?: string //fix(types): remove duplicate owner_id in SupabaseFarmListing
   is_organic: boolean
   is_accessible: boolean
   family_friendly: boolean
@@ -213,7 +212,7 @@ interface SupabaseFarmListing {
   lng: number | null
 }
 
-// ── Host verification (batched, no view changes needed) ──────
+// ── Host verification  ──────
 
 interface OwnerVerification {
   phone_verified: boolean;
@@ -249,7 +248,7 @@ async function fetchOwnerVerification(ownerIds: (string | undefined)[]): Promise
   return result;
 }
 
-// ── Listing images (batched) ──────────────────────────────────
+// ── Listing images (batched) ──
 
 interface ListingImageRow {
   farm_listing_id: string;
@@ -390,7 +389,7 @@ async function mapRowsToFarms(rows: SupabaseFarmListing[]): Promise<FarmWithVeri
   );
 }
 
-// ── Public read API ────────────────────────────────────────────
+// ── Public read API ───
 
 function todayIso(): string {
   return new Date().toISOString().split('T')[0];
@@ -445,7 +444,7 @@ export async function fetchOwnFarmListings(ownerId: string) {
   return data ?? [];
 }
 
-// ── Create / update / delete listing ────────────────────────
+// ── Create / update / delete listing ──────
 export type PriceUnit = 'kg' | 'h' | 'day' | 'piece' | 'litre'
 export type ListingCategory = 'picking' | 'job'
 
@@ -464,9 +463,9 @@ export function allowedUnitsForCategory(category: ListingCategory): PriceUnit[] 
 export interface CreateFarmListingInput {
   owner_id: string;
   farm_id: string;
-  category: ListingCategory;   // → maps to farm_listings.type
+  category: ListingCategory;   
   title: string;
-  crop_type?: string;          // free text — actual produce/culture, NOT the category id
+  crop_type?: string;          
   price: number;
   price_unit: PriceUnit;
   capacity?: number;

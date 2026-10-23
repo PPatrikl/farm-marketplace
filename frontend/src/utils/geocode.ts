@@ -3,13 +3,12 @@
 // Turns an address or town name into coordinates, using OpenStreetMap's
 // free geocoder Nominatim: https://nominatim.org/release-docs/latest/api/Search/
 //
-// Rules of the free service (usage policy):
+// Usage policy:
 //   - at most 1 request per second
-//   - show "© OpenStreetMap" attribution (our maps already do)
-// We only call it when a farm / forest listing is saved, so we stay far below that.
+//   - show "© OpenStreetMap" attribution 
+// Call it when a farm / forest listing is saved, so it stays below the limit
 //
-// Geocoding must never break saving: every function here returns null
-// on any problem, and the listing is then saved without coordinates.
+// The listing is then saved without coordinates if any problem occurs.
 
 import type { Coords } from "./distance";
 
@@ -36,7 +35,7 @@ export async function geocode(query: string): Promise<Coords | null> {
     });
     if (!res.ok) return null;
 
-    // Nominatim returns lat/lon as strings, e.g. [{ "lat": "60.24", "lon": "24.06", ... }]
+    // Nominatim returns lat/lon as strings
     const results: { lat: string; lon: string }[] = await res.json();
     if (results.length === 0) return null;
 
@@ -50,11 +49,7 @@ export async function geocode(query: string): Promise<Coords | null> {
   }
 }
 
-/**
- * Tries the queries in order (most precise first) and returns the first hit.
- * Example: geocodeFirst(["Koivurantatie 12, Lohja", "Lohja"])
- * Waits 1 s between attempts to respect Nominatim's 1 request/second limit.
- */
+/** Tries the queries in order (most precise first) and returns the first hit */
 export async function geocodeFirst(queries: (string | null | undefined)[]): Promise<Coords | null> {
   const usable = queries.filter((q): q is string => Boolean(q && q.trim()));
   for (let i = 0; i < usable.length; i++) {
@@ -65,10 +60,7 @@ export async function geocodeFirst(queries: (string | null | undefined)[]): Prom
   return null;
 }
 
-/**
- * Coordinates in the text format PostGIS accepts for a geography column.
- * NOTE: longitude first, then latitude — same as st_makepoint(lng, lat).
- */
+/* Coordinates in the text format PostGIS accepts for a geography column. */
 export function toPostgisPoint(c: Coords): string {
   return `SRID=4326;POINT(${c.lng} ${c.lat})`;
 }

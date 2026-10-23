@@ -13,11 +13,11 @@ interface ForestListingDetailProps {
   contacted: boolean;
   onBack: () => void;
   onContact: () => void;
-  /** "12 km" from the user, or "— km" when unknown */
+  /** "xx km" from the user, or "— km" when unknown */
   distanceLabel?: string;
 }
 
-// Database stores "litre", but on screen we want "L"
+// Database stores "litre", but on screen  "L"
 const unitLabel = (unit: string) => (unit === "litre" ? "L" : unit);
 
 export function ForestListingDetail({ listing, lang, contacted, onBack, onContact, distanceLabel }: ForestListingDetailProps) {

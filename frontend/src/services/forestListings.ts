@@ -157,7 +157,7 @@ export interface UpdateForestListingInput {
   description?: string;
   delivery_available?: boolean;
   pickup_only?: boolean;
-  images?: UploadedImage[]; // any images here are appended as new listing_images rows
+  images?: UploadedImage[]; 
 }
 
 export async function updateForestListing(listingId: string, input: UpdateForestListingInput) {
@@ -237,7 +237,7 @@ export async function deleteForestListing(listingId: string) {
   }
 }
 
-// --  for landing page -----------
+// --  for landing page --
 export async function getRecentForestListings(limit: number) {
   const { data, error } = await supabase
     .from('forest_listings_full')
