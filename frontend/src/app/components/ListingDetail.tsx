@@ -3,11 +3,11 @@ import {
   ChevronRight, MapPin, Star, Heart, CheckCircle,
   Home, Utensils, Car, Dog, Users,
   FileText, ChevronLeft, ChevronRight as ChevronRightIcon,
-  MessageSquare, Send, ShieldCheck, Sprout,
+  MessageSquare, ShieldCheck, Sprout,
   Accessibility, Tractor, AlertTriangle, Banknote,
 } from "lucide-react";
 
-import { useState, useEffect, useRef } from "react";
+import { useState} from "react";
 import { useLang } from "../i18n/LanguageContext";
 import { supabase } from "../../supabaseClient";
 import type { FarmWithVerification } from "../../services/farmListings";
@@ -157,76 +157,7 @@ function AmenityTag({ tag }: { tag: string }) {
   );
 }
 
-// ─── Contact drawer ───────────────────────────────────────────────────────────
-function ContactDrawer({ hostName, onClose }: { hostName: string; onClose: () => void }) {
-  const { tr, lang } = useLang();
-  const [message, setMessage] = useState("");
-  const [sent, setSent] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-      style={{ background: "rgba(28,28,26,0.55)", backdropFilter: "blur(4px)" }}>
-      <div ref={ref} className="w-full max-w-md bg-card rounded-3xl border border-border shadow-2xl overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
-        {sent ? (
-          <div className="p-8 flex flex-col items-center text-center">
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-              <CheckCircle className="w-7 h-7 text-primary" />
-            </div>
-            <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500, fontSize: "1.25rem" }} className="text-foreground mb-2">
-              {tr("det_host_message_sent")}
-            </h3>
-            <p className="text-muted-foreground text-sm mb-6 leading-relaxed">
-              {lang === "fi"
-                ? `Viestisi on lähetetty ${hostName}:lle. Hän vastaa yleensä alle 2 tunnissa.`
-                : `Your message has been sent to ${hostName}. They usually reply within 2 hours.`}
-            </p>
-            <button onClick={onClose} className="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors">
-              {lang === "fi" ? "Sulje" : "Close"}
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="px-6 py-5 border-b border-border flex items-center justify-between"
-              style={{ background: "linear-gradient(160deg, #F5F3EE 0%, #EEF4E9 100%)" }}>
-              <div>
-                <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500 }} className="text-foreground text-lg">{tr("det_host_contact")}</h3>
-                <p className="text-muted-foreground text-xs mt-0.5">{hostName}</p>
-              </div>
-              <button onClick={onClose} className="p-2 rounded-lg text-muted-foreground hover:bg-secondary transition-colors">
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder={tr("det_host_message_placeholder")}
-                rows={4}
-                className="w-full px-4 py-3 bg-input-background rounded-xl border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-ring/30 resize-none"
-                autoFocus
-              />
-              <button
-                onClick={() => message.trim() && setSent(true)}
-                disabled={!message.trim()}
-                className="w-full py-3 flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <Send className="w-4 h-4" />
-                {tr("det_host_send")}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ─── small shared bits ────────────────────────────────────────────────────────
 function DetailRow({ label, value }: { label: string; value: string }) {
