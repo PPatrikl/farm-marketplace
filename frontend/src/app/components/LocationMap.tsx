@@ -1,9 +1,7 @@
 // frontend/src/app/components/LocationMap.tsx
 //
 // Small real map for detail pages, using OpenStreetMap's free embed
-// (no library, no API key). Shows a pin at the given coordinates and a
-// "Get directions" link that opens Google Maps in a new tab.
-//
+
 // Usage:
 //   <LocationMap lat={listing.lat} lng={listing.lng} label="Tampere, Pirkanmaa" lang={lang} />
 
@@ -12,7 +10,7 @@ import { Navigation, MapPin } from "lucide-react";
 interface LocationMapProps {
   lat: number | null;
   lng: number | null;
-  label: string;      // shown under the map, e.g. "Tampere, Pirkanmaa"
+  label: string;      // shown under the map
   lang: string;
   /** true when the coordinates are only the city centre, not the exact spot */
   approximate?: boolean;
@@ -22,7 +20,7 @@ interface LocationMapProps {
 export function LocationMap({ lat, lng, label, lang, approximate = true, height = 260 }: LocationMapProps) {
   const fi = lang === "fi";
 
-  // No coordinates → say so instead of showing a wrong map
+  // No coordinates -> say so instead of showing a wrong map
   if (lat == null || lng == null) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -32,7 +30,7 @@ export function LocationMap({ lat, lng, label, lang, approximate = true, height 
     );
   }
 
-  // The visible area around the pin: about ±5 km
+  // The visible area around the pin: about 5 km +-
   const d = 0.05;
   const bbox = [lng - d * 2, lat - d, lng + d * 2, lat + d].join(",");
   const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`;
@@ -58,7 +56,7 @@ export function LocationMap({ lat, lng, label, lang, approximate = true, height 
           </span>
           {approximate && (
             <span className="text-xs block mt-0.5">
-              {fi ? "Sijainti on suuntaa antava (kunnan keskusta)." : "Approximate location (town centre)."}
+              {fi ? "Sijainti on suuntaa antava." : "Approximate location."}
             </span>
           )}
         </div>
