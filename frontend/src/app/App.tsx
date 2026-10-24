@@ -12,6 +12,7 @@ import { NotFound } from "./routes/NotFound";
 import type { Farm } from "./data/farms";
 import { supabase } from "../supabaseClient";
 import { LocationProvider } from "./location/LocationContext";
+import { UnreadProvider } from "./notifications/UnreadContext";
 
 // Old page names (still used by Navbar, LandingPage etc.) → real URLs.
 // Keeping the names means those components don't need to change.
@@ -20,6 +21,7 @@ const PATHS: Record<string, string> = {
   farmers: "/tilaluettelo",
   foragers: "/metsatori",
   profile: "/oma-tili",
+  inbox: "/oma-tili?tab=inbox",
 };
 
 /** Which navbar tab is active, worked out from the URL */
@@ -95,7 +97,7 @@ function AppInner() {
 
   const handleNavigate = (target: string) => {
     // Protect profile page — ask to log in first
-    if (target === "profile" && !user) {
+    if ((target === "profile" || target === "inbox") && !user) {
       openAuth("login");
       return;
     }
@@ -176,7 +178,11 @@ export default function App() {
   return (
     <LanguageProvider>
       <LocationProvider>
-        <AppInner />
+      <LocationProvider>
+        <UnreadProvider>
+          <AppInner />
+        </UnreadProvider>
+      </LocationProvider>      
       </LocationProvider>
     </LanguageProvider>
   );
