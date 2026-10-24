@@ -2,6 +2,7 @@ import { Leaf, Menu, X, Bell, User, LogOut, ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useLang } from "../i18n/LanguageContext";
 import type { Lang } from "../i18n/translations";
+import { useUnread } from "../notifications/UnreadContext";
 
 interface NavbarProps {
   activePage: string;
@@ -13,6 +14,7 @@ interface NavbarProps {
 
 export function Navbar({ activePage, onNavigate, user, onOpenAuth, onLogout }: NavbarProps) {
   const { lang, setLang, tr } = useLang();
+  const { count: unread } = useUnread();
   const [menuOpen, setMenuOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
@@ -120,9 +122,17 @@ export function Navbar({ activePage, onNavigate, user, onOpenAuth, onLogout }: N
 
             {user ? (
               <>
-                <button className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+                <button
+                  onClick={() => onNavigate("inbox")}
+                  title={lang === "fi" ? "Saapuneet" : "Inbox"}
+                  className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                >
                   <Bell className="w-5 h-5" />
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />
+                  {unread > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-accent text-accent-foreground text-[10px] font-semibold rounded-full flex items-center justify-center">
+                      {unread > 9 ? "9+" : unread}
+                    </span>
+                  )}
                 </button>
                 <button
                   onClick={() => onNavigate("profile")}

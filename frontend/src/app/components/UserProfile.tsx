@@ -11,6 +11,9 @@ import { createForestListing, updateForestListing, deleteForestListing } from '.
 import { getEffectiveStatus, type PriceUnit, type FarmRecord, type ListingStatus } from '../../services/farmListings';
 import { fetchImagesForListing, deleteListingImage, type ListingImageRecord } from '../../services/listingImages';
 import { formatShortDate } from "../../utils/dates";
+import { useSearchParams } from "react-router";
+import { Inbox } from "./Inbox";
+import { useUnread } from "../notifications/UnreadContext";
 
 import {
   TextField, TextArea, PriceField, UnitSelect, RegionSelect, Checkbox,
@@ -99,7 +102,14 @@ export function UserProfile() {
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<"profile" | "create">("profile");
+  // The open tab lives in the URL (?tab=create / ?tab=inbox), so the bell can link
+  // straight to the inbox and the browser's Back button works between tabs.
+  type Tab = "profile" | "create" | "inbox";
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const activeTab: Tab = tabParam === "create" || tabParam === "inbox" ? tabParam : "profile";
+  const setActiveTab = (tab: Tab) => setSearchParams(tab === "profile" ? {} : { tab });
+  const { count: unread } = useUnread();
   const [dragOver, setDragOver] = useState(false);
 
   const [pickerForm, setPickerForm] = useState(EMPTY_PICKER_FORM);
@@ -285,6 +295,7 @@ export function UserProfile() {
   const tabs = [
     { id: "profile", labelKey: "profile_tab_profile" as const },
     { id: "create", labelKey: "profile_tab_create" as const },
+    { id: "inbox", labelKey: "profile_tab_inbox" as const },
   ];
 
   const initials = profile?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'MK';
@@ -348,7 +359,7 @@ export function UserProfile() {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as "profile" | "create")}
+                onClick={() => setActiveTab(tab.id as Tab)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   activeTab === tab.id
                     ? "bg-primary text-primary-foreground"
@@ -356,6 +367,11 @@ export function UserProfile() {
                 }`}
               >
                 {tr(tab.labelKey)}
+                {tab.id === "inbox" && unread > 0 && (
+                  <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground text-[10px] font-semibold">
+                    {unread}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -573,6 +589,8 @@ export function UserProfile() {
               </div>
             </div>
           </div>
+        ) : activeTab === "inbox" ? (
+          <Inbox lang={lang} />
         ) : (
           role === "picker" && (
             <div className="max-w-2xl mx-auto space-y-6">
