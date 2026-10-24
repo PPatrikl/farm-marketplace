@@ -6,6 +6,7 @@
 import { ArrowLeft, MapPin, Clock, Scale, Truck, ShieldCheck, Star } from "lucide-react";
 import type { ForestListing } from "../../services/forestListings";
 import { LocationMap } from "./LocationMap";
+import { ShareButton } from "./ShareButton";
 
 interface ForestListingDetailProps {
   listing: ForestListing;
@@ -49,14 +50,16 @@ export function ForestListingDetail({ listing, lang, contacted, onBack, onContac
     <div style={{ fontFamily: "'Inter', sans-serif" }} className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Back button */}
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-5 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          {fi ? "Takaisin Metsätoriin" : "Back to market"}
-        </button>
-
+        <div className="flex items-center justify-between mb-5">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            {fi ? "Takaisin Metsätoriin" : "Back to market"}
+          </button>
+          <ShareButton title={listing.product_name} lang={lang} label={fi ? "Jaa" : "Share"} />
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* ── Left: image + description ── */}
           <div className="lg:col-span-2 space-y-5">

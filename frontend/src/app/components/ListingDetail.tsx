@@ -1,6 +1,6 @@
 // src/app/components/ListingDetail.tsx
 import {
-  ChevronRight, MapPin, Star, Share2, Heart, CheckCircle,
+  ChevronRight, MapPin, Star, Heart, CheckCircle,
   Home, Utensils, Car, Dog, Users,
   FileText, ChevronLeft, ChevronRight as ChevronRightIcon,
   MessageSquare, Send, ShieldCheck, Sprout,
@@ -14,8 +14,10 @@ import type { FarmWithVerification } from "../../services/farmListings";
 import { isoToDate, sameDay, formatLongDate, formatIsoDate } from "../../utils/dates";
 import { ContactFormModal } from "./ContactFormModal";
 import { LocationMap } from "./LocationMap";
+import { ShareButton } from "./ShareButton";
 import { useLocation } from "../location/LocationContext";
 import { distanceTo, formatDistance } from "../../utils/distance";
+
 
 interface ListingDetailProps {
   farm: FarmWithVerification;
@@ -437,9 +439,11 @@ export function ListingDetail({ farm, onBack }: ListingDetailProps) {
             <span className="text-foreground font-medium truncate max-w-[200px]">{farm.name}</span>
           </nav>
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-sm">
-              <Share2 className="w-3.5 h-3.5" />{tr("det_share")}
-            </button>
+            <ShareButton
+              title={farm.title ? `${farm.name} — ${farm.title}` : farm.name}
+              lang={lang}
+              label={tr("det_share")}
+            />
             <button
               onClick={() => setSaved(!saved)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors text-sm ${
