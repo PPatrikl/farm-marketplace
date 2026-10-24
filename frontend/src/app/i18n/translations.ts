@@ -190,18 +190,7 @@ export const t = {
     auth_notifications_enabled: "Ilmoitukset avattu",
     auth_btn_continue: "Jatka",
 
-    // Regions
-    region_uusimaa: "Uusimaa",
-    region_pirkanmaa: "Pirkanmaa",
-    region_varsinais: "Varsinais-Suomi",
-    region_kanta: "Kanta-Häme",
-    region_paijat: "Päijät-Häme",
-    region_kymenlaakso: "Kymenlaakso",
-    region_s_karelia: "Etelä-Karjala",
-    region_n_karelia: "Pohjois-Karjala",
-    region_central: "Keski-Suomi",
-    region_n_ostro: "Pohjois-Pohjanmaa",
-    region_lapland: "Lappi",
+    
 
     // Detail page
     det_breadcrumb_home: "Etusivu",
@@ -446,18 +435,7 @@ export const t = {
     auth_success_sub: "Your account has been created. You can now post listings and contact sellers.",    auth_verified_phone_done: "Phone verified",
     auth_notifications_enabled: "Notifications enabled",    auth_btn_continue: "Continue",
 
-    // Regions
-    region_uusimaa: "Uusimaa",
-    region_pirkanmaa: "Pirkanmaa",
-    region_varsinais: "Varsinais-Suomi",
-    region_kanta: "Kanta-Häme",
-    region_paijat: "Päijät-Häme",
-    region_kymenlaakso: "Kymenlaakso",
-    region_s_karelia: "South Karelia",
-    region_n_karelia: "North Karelia",
-    region_central: "Central Finland",
-    region_n_ostro: "Northern Ostrobothnia",
-    region_lapland: "Lapland",
+   
 
     // Detail page
     det_breadcrumb_home: "Home",
