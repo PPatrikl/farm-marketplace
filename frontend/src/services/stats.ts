@@ -30,14 +30,20 @@ export interface CategoryCounts {
 }
 
 export async function getCategoryCounts(): Promise<CategoryCounts> {
+  const today = new Date().toISOString().split('T')[0];
+
   const [pickingRes, jobsRes, forestRes] = await Promise.all([
     supabase.from('farm_listings').select('id', { count: 'exact', head: true })
-      .eq('status', 'active').eq('type', 'itsepoiminta'),
+      .eq('status', 'active').eq('type', 'itsepoiminta').gte('date_end', today),
     supabase.from('farm_listings').select('id', { count: 'exact', head: true })
-      .eq('status', 'active').eq('type', 'kausityo'),
+      .eq('status', 'active').eq('type', 'kausityo').gte('date_end', today),
     supabase.from('forest_listings').select('id', { count: 'exact', head: true })
       .eq('status', 'active'),
   ]);
+
+  if (pickingRes.error) throw pickingRes.error;
+  if (jobsRes.error) throw jobsRes.error;
+  if (forestRes.error) throw forestRes.error;
 
   return {
     pickingCount: pickingRes.count ?? 0,
